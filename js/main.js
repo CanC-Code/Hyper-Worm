@@ -4,7 +4,7 @@
 
 import * as THREE from "../three/three.module.js";
 import { scene, camera, renderer, world, resizeRenderer, updateCamera } from "./render/scene.js";
-import { state as snakeState, initSnakeFromMesh, updateSnake, growSnake, getHeadPosition, getHeadDirection, checkSelfCollision } from "./game/snake.js";
+import { state as snakeState, initSnakeFromMesh, updateSnake, growSnake, getHeadPosition, getHeadDirection, checkSelfCollision, updateSpeedParticles } from "./game/snake.js";
 import { state, resetGameState } from "./game/gameState.js";
 import { buildRoom, clearRoom, checkWallCollision } from "./game/room.js";
 import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
@@ -220,6 +220,7 @@ spawnSmoothEggSnake((snakeMesh) => {
     snakeState.speed = BASE_SPEED + (state.room - 1) * SPEED_PER_ROOM;
     
     updateSnake(delta);
+    updateSpeedParticles(); // Update trail particles
     const headPos = getHeadPosition();
 
     // Check collisions
