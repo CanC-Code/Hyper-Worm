@@ -11,13 +11,16 @@ export const state = {
 };
 
 export function buildRoom(worldRef, size = 12, height = 4) {
-  // Enhanced materials with better visuals
+  // Enhanced materials with transparency for walls
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x3366cc,
     roughness: 0.7,
     metalness: 0.3,
     emissive: 0x112244,
-    emissiveIntensity: 0.2
+    emissiveIntensity: 0.2,
+    transparent: true,
+    opacity: 0.3, // Semi-transparent walls
+    side: THREE.DoubleSide
   });
   
   const floorMat = new THREE.MeshStandardMaterial({
@@ -41,13 +44,14 @@ export function buildRoom(worldRef, size = 12, height = 4) {
   worldRef.add(gridHelper);
   state.decorations.push(gridHelper);
 
-  // Walls with thickness
-  const wallThickness = 0.3;
+  // Walls with thickness - positioned further back to not obstruct view
+  const wallThickness = 0.2;
+  const wallInset = 0.3; // Move walls slightly inward
   
   // Front wall
   const wallFrontGeo = new THREE.BoxGeometry(size, height, wallThickness);
   const wallFront = new THREE.Mesh(wallFrontGeo, wallMat);
-  wallFront.position.set(0, height / 2, size / 2);
+  wallFront.position.set(0, height / 2, size / 2 + wallInset);
   wallFront.castShadow = true;
   wallFront.receiveShadow = true;
   worldRef.add(wallFront);
@@ -55,7 +59,7 @@ export function buildRoom(worldRef, size = 12, height = 4) {
 
   // Back wall
   const wallBack = new THREE.Mesh(wallFrontGeo, wallMat);
-  wallBack.position.set(0, height / 2, -size / 2);
+  wallBack.position.set(0, height / 2, -size / 2 - wallInset);
   wallBack.castShadow = true;
   wallBack.receiveShadow = true;
   worldRef.add(wallBack);
@@ -64,7 +68,7 @@ export function buildRoom(worldRef, size = 12, height = 4) {
   // Right wall
   const wallSideGeo = new THREE.BoxGeometry(wallThickness, height, size);
   const wallRight = new THREE.Mesh(wallSideGeo, wallMat);
-  wallRight.position.set(size / 2, height / 2, 0);
+  wallRight.position.set(size / 2 + wallInset, height / 2, 0);
   wallRight.castShadow = true;
   wallRight.receiveShadow = true;
   worldRef.add(wallRight);
@@ -72,7 +76,7 @@ export function buildRoom(worldRef, size = 12, height = 4) {
 
   // Left wall
   const wallLeft = new THREE.Mesh(wallSideGeo, wallMat);
-  wallLeft.position.set(-size / 2, height / 2, 0);
+  wallLeft.position.set(-size / 2 - wallInset, height / 2, 0);
   wallLeft.castShadow = true;
   wallLeft.receiveShadow = true;
   worldRef.add(wallLeft);
