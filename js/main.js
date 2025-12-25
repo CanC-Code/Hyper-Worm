@@ -1,22 +1,14 @@
 /// main.js
-/// Full Hyper-Worm game loop with egg intro
+/// Full snake game loop with egg intro
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
-import { scene, camera, renderer, resizeRenderer, world, updateCamera } from "./render/scene.js";
-import {
-  state as snakeState,
-  initSnakeFromMesh,
-  updateSnake,
-  growSnake,
-  getHeadPosition,
-  setDirection
-} from "./game/snake.js";
+import { scene, camera, renderer, world, resizeRenderer, updateCamera } from "./render/scene.js";
+import { state as snakeState, initSnakeFromMesh, updateSnake, growSnake, getHeadPosition, getHeadDirection } from "./game/snake.js";
 import { state, resetGameState } from "./game/gameState.js";
 import { buildRoom, clearRoom } from "./game/room.js";
 import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
-import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
-import { initTouchControls, getDirectionVector } from "./input/touchControls.js";
+import { initTouchControls } from "./input/touchControls.js";
 import { spawnSmoothEggSnake } from "./game/eggSnakeMorph.js";
 
 /* ---------- HUD ---------- */
@@ -25,80 +17,42 @@ function updateHUD() {
   hud.textContent = `Bites: ${state.bites} | Room: ${state.room}`;
 }
 
-/* ---------- GAME RESET ---------- */
-function resetGame(snakeMesh) {
-  clearRoom(world);
-  clearDoor(world);
-  resetGameState();
-  buildRoom(world);
-  initSnakeFromMesh(snakeMesh);
-  spawnFood(world);
-  updateHUD();
-}
-
 /* ---------- INITIAL SETUP ---------- */
 document.body.appendChild(renderer.domElement);
 window.addEventListener("resize", resizeRenderer);
-
 initTouchControls();
 
-/* ---------- START GAME WITH EGG MORPH ---------- */
+/* ---------- START GAME ---------- */
 spawnSmoothEggSnake((snakeMesh) => {
-  // Position camera for intro
-  camera.position.copy(snakeMesh.position.clone().add(new THREE.Vector3(0, 3, -5)));
-  camera.lookAt(snakeMesh.position);
-
-  // Reset game once snake appears
-  resetGame(snakeMesh);
+  initSnakeFromMesh(snakeMesh);
+  buildRoom(world);
 
   let lastTime = performance.now();
   const baseSpeed = 2;
-  const speedIncrement = 0.02;
+  const speedIncrement = 0.05;
 
-  function gameLoop(now) {
-    requestAnimationFrame(gameLoop);
-    const delta = (now - lastTime) / 1000;
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const delta = (now - lastTime)/1000;
     lastTime = now;
 
-    if (!state.alive) {
-      resetGame(snakeMesh);
-      return;
-    }
-
-    // Gradually ramp speed
-    snakeState.speed = baseSpeed + now / 1000 * speedIncrement;
-
-    // Steering input
-    const dir = getDirectionVector();
-    setDirection({ x: dir.x, y: dir.y });
-
-    // Move snake
+    snakeState.speed = baseSpeed + now/1000*speedIncrement;
     updateSnake(delta);
 
     const headPos = getHeadPosition();
 
-    // Food collision
     if (checkFoodCollision(headPos)) {
       growSnake();
       removeFood(world);
-      if (state.doorOpen) spawnDoor(world);
-      else spawnFood(world);
-      updateHUD();
-    }
-
-    // Door logic
-    if (state.doorOpen && checkDoorEntry(headPos, world)) {
-      clearRoom(world);
-      buildRoom(world);
       spawnFood(world);
       updateHUD();
     }
 
-    // Camera strictly follows snake
-    updateCamera(delta);
-
+    updateCamera(snakeState.mesh, getHeadDirection());
     renderer.render(scene, camera);
   }
 
-  requestAnimationFrame(gameLoop);
+  spawnFood(world);
+  updateHUD();
+  animate(lastTime);
 });
