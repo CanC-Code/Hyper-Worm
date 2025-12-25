@@ -1,60 +1,28 @@
-/// scene.js
-/// Scene setup with lights, floor, and camera following snake
-/// Made by CCVO - CanC-Code
-
-import * as THREE from "../../three/three.module.js";
-import { state as snakeState } from "../game/snake.js";
-
-export const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x000000, 5, 50);
-
-export const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-
-export const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setClearColor(0x000000);
-renderer.shadowMap.enabled = true;
-
-export const world = new THREE.Group();
-scene.add(world);
-
-/* ---------- LIGHT ---------- */
-const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambient);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-dirLight.position.set(5, 10, 5);
-dirLight.castShadow = true;
-scene.add(dirLight);
-
-/* ---------- FLOOR ---------- */
-const floorGeo = new THREE.PlaneGeometry(100, 100);
-const floorMat = new THREE.MeshStandardMaterial({
-  color: 0x222222,
-  roughness: 0.8,
-  metalness: 0.2,
-});
-const floor = new THREE.Mesh(floorGeo, floorMat);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
-
-/* ---------- CAMERA ---------- */
-export function resizeRenderer() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
+// js/render/scene.js
 
 export function updateCamera(delta) {
   if (!snakeState.mesh) return;
 
-  const offset = new THREE.Vector3(0, 1.5, -3);
-  const desiredPos = snakeState.mesh.position.clone().add(offset);
-  camera.position.lerp(desiredPos, 0.1);
-  camera.lookAt(snakeState.mesh.position);
+  const head = snakeState.mesh;
+  const forward = snakeState.direction.clone().normalize();
+
+  // Wide-angle snake POV
+  camera.fov = 85;
+  camera.updateProjectionMatrix();
+
+  // Camera offset RELATIVE to snake direction
+  const cameraDistance = 3.5;
+  const cameraHeight = 1.2;
+
+  const cameraPos = head.position.clone()
+    .add(forward.clone().multiplyScalar(-cameraDistance))
+    .add(new THREE.Vector3(0, cameraHeight, 0));
+
+  camera.position.lerp(cameraPos, 0.15);
+
+  // Look slightly ahead of the snake
+  const lookTarget = head.position.clone()
+    .add(forward.clone().multiplyScalar(5));
+
+  camera.lookAt(lookTarget);
 }
