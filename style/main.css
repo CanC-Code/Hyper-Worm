@@ -1,6 +1,6 @@
 /*
   main.css
-  Purpose: Global styles and mobile safety
+  Purpose: Global styles and mobile safety for Hyper-Worm
   Made by CCVO - CanC-Code
 */
 
@@ -10,7 +10,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #000;
+  background: radial-gradient(circle at 50% 50%, #001100, #000000);
   touch-action: none;
   font-family: monospace;
 }
@@ -19,7 +19,8 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
-  image-rendering: pixelated;
+  image-rendering: auto; /* smooth rendering for 3D meshes */
+  background: transparent;
 }
 
 #hud {
@@ -38,4 +39,17 @@ canvas {
   border-radius: 4px;
   user-select: none;
   pointer-events: none;
+}
+
+/* Responsive HUD for mobile */
+@media (max-width: 768px) {
+  #hud {
+    font-size: 16px;
+    padding: 8px 12px;
+  }
+}
+
+/* Optional: subtle glowing effect for HUD */
+#hud {
+  text-shadow: 0 0 4px #00ff88;
 }
