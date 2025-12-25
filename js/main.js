@@ -1,5 +1,5 @@
 /// main.js
-/// Purpose: Game loop with dynamic 3D POV snake
+/// Purpose: Game loop with dynamic 3D POV snake and egg intro
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
@@ -10,6 +10,7 @@ import { buildRoom, clearRoom } from "./game/room.js";
 import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
 import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
 import { initTouchControls, getDirectionVector } from "./input/touchControls.js";
+import { spawnEggSnake } from "./game/eggSnake.js";
 
 /* ---------- HUD ---------- */
 const hud = document.getElementById("hud");
@@ -23,9 +24,13 @@ function resetGame() {
   clearDoor(world);
   resetGameState();
   buildRoom(world);
-  initSnake(world);
-  spawnFood(world);
-  updateHUD();
+
+  // Spawn egg intro, then initialize snake after hatching
+  spawnEggSnake(new THREE.Vector3(0, 0, 0), () => {
+    initSnake(world);
+    spawnFood(world);
+    updateHUD();
+  });
 }
 
 /* ---------- INITIAL SETUP ---------- */
