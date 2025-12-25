@@ -1,74 +1,91 @@
 /// snake.js
-/// Smooth 3D snake movement with segments and mouth
+/// Procedural dynamic snake logic
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { world } from "../render/scene.js";
+import { state as gameState } from "./gameState.js";
 
 export const state = {
   mesh: null,
+  mouth: null,
   segments: [],
+  segmentSpacing: 0.4,
   speed: 2,
   yaw: 0,
   targetYaw: 0,
-  turnRate: Math.PI,
-  segmentDistance: 0.5,
-  mouth: null,
+  direction: new THREE.Vector3(0, 0, 1),
 };
 
-export function setDirection(vec2) {
-  if (!vec2 || vec2.length() === 0) return;
-  state.targetYaw = Math.atan2(vec2.x, vec2.y);
+/* ---------- Initialize snake from head mesh ---------- */
+export function initSnakeFromMesh(headMesh) {
+  state.mesh = headMesh;
+  state.segments = [];
+  state.yaw = 0;
+  state.targetYaw = 0;
+  state.direction.set(0, 0, 1);
 }
 
+/* ---------- Add a segment at tail ---------- */
+export function growSnake() {
+  if (!state.mesh) return;
+  const last = state.segments.length
+    ? state.segments[state.segments.length - 1]
+    : state.mesh;
+
+  const segGeo = new THREE.CylinderGeometry(0.18, 0.18, state.segmentSpacing, 16);
+  const segMat = new THREE.MeshStandardMaterial({ color: 0x44ff88, metalness: 0.6, roughness: 0.3 });
+  const segment = new THREE.Mesh(segGeo, segMat);
+  segment.rotation.x = Math.PI / 2;
+  segment.position.copy(last.position.clone().add(new THREE.Vector3(0, 0, -state.segmentSpacing)));
+  state.segments.push(segment);
+  last.parent.add(segment);
+}
+
+/* ---------- Get head position ---------- */
+export function getHeadPosition() {
+  return state.mesh ? state.mesh.position.clone() : new THREE.Vector3();
+}
+
+/* ---------- Steering input ---------- */
+export function setDirection(dir) {
+  if (!state.mesh) return;
+  // dir: {x, y} from touch controls
+  state.targetYaw = Math.atan2(dir.x, dir.y);
+}
+
+/* ---------- Update snake ---------- */
 export function updateSnake(delta) {
   if (!state.mesh) return;
 
-  // Smooth turning
-  let deltaYaw = state.targetYaw - state.yaw;
-  while (deltaYaw > Math.PI) deltaYaw -= 2 * Math.PI;
-  while (deltaYaw < -Math.PI) deltaYaw += 2 * Math.PI;
-  deltaYaw = THREE.MathUtils.clamp(deltaYaw, -state.turnRate * delta, state.turnRate * delta);
-  state.yaw += deltaYaw;
+  // Smooth yaw
+  const yawDiff = state.targetYaw - state.yaw;
+  state.yaw += yawDiff * Math.min(delta * 8, 1);
 
-  const forward = new THREE.Vector3(Math.sin(state.yaw), 0, Math.cos(state.yaw));
+  // Update direction vector
+  state.direction.set(Math.sin(state.yaw), 0, Math.cos(state.yaw)).normalize();
 
   // Move head
-  const moveDelta = forward.clone().multiplyScalar(state.speed * delta);
-  state.mesh.position.add(moveDelta);
-  state.mesh.rotation.y = state.yaw;
+  const moveStep = state.speed * delta;
+  state.mesh.position.add(state.direction.clone().multiplyScalar(moveStep));
 
-  // Animate mouth
-  if (state.mouth) state.mouth.rotation.x = Math.sin(performance.now() * 0.01) * 0.4;
-
-  // Update segments
+  // Move segments to follow head
   let prevPos = state.mesh.position.clone();
-  for (let seg of state.segments) {
-    const diff = prevPos.clone().sub(seg.position);
-    if (diff.length() > state.segmentDistance) {
-      seg.position.add(diff.multiplyScalar(0.3));
-      seg.lookAt(prevPos);
+  for (const seg of state.segments) {
+    const segPos = seg.position.clone();
+    const dir = prevPos.clone().sub(segPos);
+    if (dir.length() > state.segmentSpacing) {
+      seg.position.add(dir.normalize().multiplyScalar(dir.length() - state.segmentSpacing));
     }
     prevPos = seg.position.clone();
   }
+
+  // Mouth hinge animation (simple open/close)
+  if (state.mouth) {
+    state.mouth.rotation.x = Math.sin(Date.now() * 0.005) * 0.2;
+  }
 }
 
-export function growSnake() {
-  if (!state.mesh) return;
-
-  const lastPos = state.segments.length > 0
-    ? state.segments[state.segments.length - 1].position.clone()
-    : state.mesh.position.clone().sub(new THREE.Vector3(0, 0, state.segmentDistance));
-
-  const geo = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 16);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x88ffcc, metalness: 0.6, roughness: 0.4 });
-  const seg = new THREE.Mesh(geo, mat);
-  seg.rotation.x = Math.PI / 2;
-  seg.position.copy(lastPos);
-  state.segments.push(seg);
-  world.add(seg);
-}
-
-export function getHeadPosition() {
-  return state.mesh ? state.mesh.position.clone() : new THREE.Vector3();
+/* ---------- Helper: get head direction ---------- */
+export function getHeadDirection() {
+  return state.direction.clone();
 }
