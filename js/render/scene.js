@@ -7,7 +7,7 @@ import * as THREE from "../../three/three.module.js";
 /* ---------- SCENE ---------- */
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a1a);
-scene.fog = new THREE.Fog(0x0a0a1a, 10, 35);
+scene.fog = new THREE.FogExp2(0x0a0a1a, 0.035); // Exponential fog for better depth
 
 /* ---------- CAMERA ---------- */
 export const camera = new THREE.PerspectiveCamera(
