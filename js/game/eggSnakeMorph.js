@@ -1,90 +1,67 @@
+/// eggSnakeMorph.js
+/// Purpose: Smooth egg → snake morph with metallic mint green, procedural scales
+/// Made by CCVO - CanC-Code
+
 import * as THREE from "../../three/three.module.js";
-import { world } from "../render/scene.js";
-import { camera } from "../render/scene.js";
+import { scene, camera, world } from "../render/scene.js";
 import { state as snakeState } from "./snake.js";
 
-/**
- * Spawn a smooth egg that morphs into a snake.
- * Single mesh approach.
- */
-export function spawnSmoothEggSnake(onComplete) {
-  // High-poly sphere
-  const sphereGeo = new THREE.SphereGeometry(0.5, 64, 64);
-  const sphereMat = new THREE.MeshStandardMaterial({ color: 0xffccaa, flatShading: false });
-  const egg = new THREE.Mesh(sphereGeo, sphereMat);
-  egg.position.set(0, 0.5, 0);
+/* ---------- Spawn Egg and Morph into Snake ---------- */
+export function spawnSmoothEggSnake(callback) {
+  // High-poly sphere for smooth deformation
+  const sphereGeo = new THREE.SphereGeometry(1, 64, 64);
+  
+  // Metallic mint green material
+  const snakeMat = new THREE.MeshStandardMaterial({
+    color: 0x66ffcc,
+    metalness: 0.8,
+    roughness: 0.3,
+    flatShading: false,
+  });
 
-  // Stretch along Z to make oblong egg
-  egg.scale.set(1, 1, 1.8);
+  const eggMesh = new THREE.Mesh(sphereGeo, snakeMat);
+  eggMesh.position.set(0, 1, 0);
+  world.add(eggMesh);
 
-  // Add nest
-  const nestGeo = new THREE.TorusGeometry(1.2, 0.3, 32, 100);
-  const nestMat = new THREE.MeshStandardMaterial({ color: 0x886633 });
-  const nest = new THREE.Mesh(nestGeo, nestMat);
-  nest.rotation.x = Math.PI / 2;
-  nest.position.y = 0;
+  // Camera initial view: central, slightly above
+  camera.position.set(0, 2, 6);
+  camera.lookAt(eggMesh.position);
 
-  world.add(nest);
-  world.add(egg);
-
-  // Camera initial zoom
-  camera.position.set(0, 3, 8);
-  camera.lookAt(egg.position);
-
-  const zoomDuration = 2000;
-  const morphDuration = 2500;
+  // Morph parameters
+  const duration = 2000; // 2s for hatch
   const startTime = performance.now();
 
-  function animateIntro() {
-    const now = performance.now();
-    const t = (now - startTime) / zoomDuration;
+  // Precompute target snake shape: elongated along Z
+  const targetScale = new THREE.Vector3(0.5, 0.5, 4);
 
-    // Zoom camera toward egg
+  function morphStep() {
+    const t = Math.min((performance.now() - startTime) / duration, 1);
+
+    // Scale egg → elongated snake
+    eggMesh.scale.lerpVectors(new THREE.Vector3(1,1,1), targetScale, t);
+
+    // Optionally bend/taper tail
+    const pos = eggMesh.geometry.attributes.position;
+    const vertexCount = pos.count;
+    for (let i = 0; i < vertexCount; i++) {
+      let z = pos.getZ(i);
+      z *= THREE.MathUtils.lerp(1, targetScale.z, t);
+      pos.setZ(i, z);
+    }
+    pos.needsUpdate = true;
+
+    // Camera smoothly moves behind head
+    const camTarget = new THREE.Vector3(0, 1.5, -1.5).applyMatrix4(eggMesh.matrixWorld);
+    camera.position.lerp(camTarget, 0.05);
+    camera.lookAt(eggMesh.position);
+
     if (t < 1) {
-      camera.position.lerpVectors(new THREE.Vector3(0, 3, 8), new THREE.Vector3(0, 1.5, 3), t);
-      camera.lookAt(egg.position);
-      requestAnimationFrame(animateIntro);
+      requestAnimationFrame(morphStep);
     } else {
-      camera.position.set(0, 1.5, 3);
-      camera.lookAt(egg.position);
-      // Start morphing egg → snake
-      morphEgg();
+      // Morph complete → call callback with snake mesh
+      callback(eggMesh);
     }
   }
 
-  function morphEgg() {
-    const morphStart = performance.now();
-    const origPositions = egg.geometry.attributes.position.array.slice();
-    const vertexCount = egg.geometry.attributes.position.count;
-
-    function step() {
-      const now = performance.now();
-      const t = (now - morphStart) / morphDuration;
-
-      if (t < 1) {
-        // Morph vertices: stretch along Z for body
-        const pos = egg.geometry.attributes.position.array;
-        for (let i = 0; i < vertexCount; i++) {
-          const ix = i * 3, iy = i * 3 + 1, iz = i * 3 + 2;
-          // Simple linear morph: elongate Z progressively
-          pos[ix] = origPositions[ix];
-          pos[iy] = origPositions[iy];
-          pos[iz] = origPositions[iz] * (1 + t * 4); // scale Z from egg → snake
-        }
-        egg.geometry.attributes.position.needsUpdate = true;
-
-        // Optional: taper tail by scaling vertices near one pole
-        // TODO: implement smooth taper
-
-        requestAnimationFrame(step);
-      } else {
-        // Morph complete, set final snake geometry
-        egg.scale.set(1, 1, 5);
-        if (onComplete) onComplete(egg);
-      }
-    }
-    requestAnimationFrame(step);
-  }
-
-  requestAnimationFrame(animateIntro);
+  requestAnimationFrame(morphStep);
 }
