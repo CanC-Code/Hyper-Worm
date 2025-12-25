@@ -1,5 +1,5 @@
 /// main.js
-/// Purpose: Full Hyper-Worm 3D game loop with POV snake, procedural rooms, smooth doors, textures
+/// Purpose: Full Hyper-Worm 3D game loop with POV snake, cinematic intro, procedural rooms, doors, and HUD
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
@@ -11,7 +11,7 @@ import { buildRoom, clearRoom } from "./game/room.js";
 import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
 import { spawnDoor, checkDoorEntry, clearDoor, checkWallCollision } from "./game/door.js";
 import { initTouchControls, getDirectionVector } from "./input/touchControls.js";
-import { spawnMorphingEggSnake } from "./game/eggSnakeMorph.js";
+import { spawnIntroEgg } from "./game/eggSnakeMorph.js";
 
 /* ---------- HUD ---------- */
 const hud = document.getElementById("hud");
@@ -25,12 +25,12 @@ function resetGame() {
   clearDoor(world);
   resetGameState();
 
-  // Build procedural room with textures
+  // Build procedural room
   buildRoom(world, 12, 5, 12);
 
-  // Spawn morphing egg → then snake
-  spawnMorphingEggSnake(new THREE.Vector3(0, 0, 0), () => {
-    initSnake(world);
+  // Spawn cinematic intro egg
+  spawnIntroEgg(() => {
+    // After intro, spawn initial food and update HUD
     spawnFood(world);
     updateHUD();
   });
@@ -49,6 +49,7 @@ let lastTime = performance.now();
 let moveAccumulator = 0;
 const baseSpeed = 2;
 const speedIncrement = 0.05;
+let doorTween = null;
 
 function animate(now) {
   requestAnimationFrame(animate);
@@ -117,8 +118,6 @@ function animate(now) {
   renderer.render(scene, camera);
 }
 
-let doorTween = null;
-
 /* ---------- Smooth Door Animation ---------- */
 function animateDoorOpen(doorMesh, duration = 1000) {
   if (!doorMesh) return;
@@ -139,7 +138,6 @@ function animateDoorOpen(doorMesh, duration = 1000) {
 }
 
 /* ---------- Lighting & Environment ---------- */
-// Add lights if not already in scene
 if (!scene.getObjectByName("mainLight")) {
   const dirLight = new THREE.DirectionalLight(0xffffff, 1);
   dirLight.position.set(10, 15, 10);
