@@ -1,104 +1,127 @@
 /// snake.js
-/// Purpose: Pixel worm (snake) entity logic and rendering
+/// Purpose: Dynamic 3D GLTF snake with segments, eating animation
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { state } from "./gameState.js";
+import { GLTFLoader } from "../../three/GLTFLoader.js";
+import { world } from "../render/scene.js";
 
-const SEGMENT_SIZE = 1;
-const SEGMENT_HEIGHT = 0.6;
+export const state = {
+  headPosition: new THREE.Vector3(0, 0, 0),
+  velocity: new THREE.Vector3(0, 0, 1),
+  speed: 2,
+  segments: [],
+  segmentLength: 1,
+  headMesh: null,
+  isGrowing: false
+};
 
-// Materials
-const headMaterial = new THREE.MeshStandardMaterial({
-  color: 0x66ff66,
-  flatShading: true
-});
+const loader = new GLTFLoader();
+let mouthAnimationMixer = null;
 
-const bodyMaterial = new THREE.MeshStandardMaterial({
-  color: 0x00cc44,
-  flatShading: true
-});
-
-// Geometry reused for all segments
-const segmentGeometry = new THREE.BoxGeometry(
-  SEGMENT_SIZE,
-  SEGMENT_HEIGHT,
-  SEGMENT_SIZE
-);
-
-let segments = [];
-let direction = new THREE.Vector2(1, 0);
-let nextDirection = direction.clone();
-
+// Initialize snake with GLTF head
 export function initSnake(scene) {
-  segments.forEach(s => scene.remove(s));
-  segments = [];
+  loader.load(
+    "/models/snake.glb",  // replace with your GLB snake model
+    (gltf) => {
+      state.headMesh = gltf.scene;
+      state.headMesh.position.copy(state.headPosition);
+      scene.add(state.headMesh);
 
-  const head = createSegment(headMaterial);
-  head.position.set(0, SEGMENT_HEIGHT / 2, 0);
+      // If gltf has animations
+      if (gltf.animations && gltf.animations.length > 0) {
+        mouthAnimationMixer = new THREE.AnimationMixer(state.headMesh);
+        const clip = gltf.animations[0]; // assuming first animation is mouth
+        mouthAnimationMixer.clipAction(clip).play();
+      }
 
-  scene.add(head);
-  segments.push(head);
-
-  direction.set(1, 0);
-  nextDirection.set(1, 0);
+      // Add initial segments
+      addSegment(scene);
+    },
+    undefined,
+    (err) => console.error("Error loading snake GLTF:", err)
+  );
 }
 
-function createSegment(material) {
-  const mesh = new THREE.Mesh(segmentGeometry, material);
-  mesh.castShadow = false;
-  mesh.receiveShadow = false;
-  return mesh;
+// Update snake each frame
+export function updateSnake(delta) {
+  if (!state.headMesh) return;
+
+  // Move head forward
+  const moveDelta = state.velocity.clone().multiplyScalar(state.speed * delta);
+  state.headPosition.add(moveDelta);
+  state.headMesh.position.copy(state.headPosition);
+
+  // Rotate head to match velocity
+  const angle = Math.atan2(state.velocity.x, state.velocity.z);
+  state.headMesh.rotation.y = angle;
+
+  // Update mouth animation if any
+  if (mouthAnimationMixer) mouthAnimationMixer.update(delta);
+
+  // Update segments
+  updateSegments();
 }
 
-export function setDirection(vec2) {
-  // Prevent direct reversal
-  if (vec2.x === -direction.x && vec2.y === -direction.y) return;
-  nextDirection.copy(vec2);
-}
-
-export function updateSnake() {
-  direction.copy(nextDirection);
-
-  const head = segments[0];
-  const nextPos = head.position.clone();
-
-  nextPos.x += direction.x * state.gridSize;
-  nextPos.z += direction.y * state.gridSize;
-
-  // Wall collision
-  const limit = state.roomSize / 2 - 0.5;
-  if (Math.abs(nextPos.x) > limit || Math.abs(nextPos.z) > limit) {
-    state.alive = false;
-    return;
-  }
-
-  // Self collision
-  for (let i = 1; i < segments.length; i++) {
-    if (segments[i].position.distanceTo(nextPos) < 0.1) {
-      state.alive = false;
-      return;
+// Update all segments to follow head
+export function updateSegments() {
+  let previousPos = state.headPosition.clone();
+  state.segments.forEach(seg => {
+    const direction = previousPos.clone().sub(seg.position);
+    const distance = direction.length();
+    if (distance > state.segmentLength) {
+      direction.normalize();
+      seg.position.add(direction.multiplyScalar(distance - state.segmentLength));
     }
-  }
-
-  // Move body (tail follows)
-  for (let i = segments.length - 1; i > 0; i--) {
-    segments[i].position.copy(segments[i - 1].position);
-  }
-
-  head.position.copy(nextPos);
+    previousPos = seg.position.clone();
+  });
 }
 
-export function growSnake(scene) {
-  const tail = segments[segments.length - 1];
+// Add a new segment (called when eating)
+export function addSegment(scene) {
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const material = new THREE.MeshStandardMaterial({ color: 0x33ff33 });
+  const segment = new THREE.Mesh(geometry, material);
 
-  const seg = createSegment(bodyMaterial);
-  seg.position.copy(tail.position);
+  // Position at last segment or head
+  const last = state.segments[state.segments.length - 1];
+  segment.position.copy(last ? last.position : state.headPosition);
 
-  scene.add(seg);
-  segments.push(seg);
+  segment.scale.set(0.1, 0.1, 0.1); // start tiny for growth
+  scene.add(segment);
+  state.segments.push(segment);
+
+  // Animate growth
+  const growDuration = 0.25; // seconds
+  let elapsed = 0;
+  function animateGrow(delta) {
+    elapsed += delta;
+    const t = Math.min(elapsed / growDuration, 1);
+    segment.scale.setScalar(t);
+    if (t < 1) requestAnimationFrame((now) => animateGrow(0.016));
+  }
+  requestAnimationFrame((now) => animateGrow(0.016));
 }
 
+// Get head position for collisions
 export function getHeadPosition() {
-  return segments[0].position.clone();
+  return state.headPosition.clone();
+}
+
+// Set snake turning velocity
+export function setDirection(vec2) {
+  // Convert 2D input into rotation in XZ plane
+  const dir = new THREE.Vector3(vec2.x, 0, vec2.y).normalize();
+  state.velocity.lerp(dir, 0.15); // smooth turning
+}
+
+// Grow snake on eating
+export function growSnake(scene) {
+  addSegment(scene);
+
+  // Optionally trigger mouth animation
+  if (mouthAnimationMixer) {
+    mouthAnimationMixer.timeScale = 2.0; // speed up mouth animation briefly
+    setTimeout(() => { if(mouthAnimationMixer) mouthAnimationMixer.timeScale = 1.0; }, 250);
+  }
 }
