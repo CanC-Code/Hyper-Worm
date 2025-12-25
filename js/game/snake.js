@@ -1,189 +1,187 @@
-/// snake.js
-/// Dynamic forward-oriented snake with smooth steering and trail - ENHANCED
-/// Made by CCVO - CanC-Code
+// snake.js
+// Purpose: Continuous segmented snake body using a tapered TubeGeometry
+// Author: CCVO + assistant
+// Drop-in replacement for sphere/segment based snakes
 
-import * as THREE from "../../three/three.module.js";
-import { getTurnInput, getTurnSpeed } from "../input/touchControls.js";
-import { world } from "../render/scene.js";
+import * as THREE from "./three/three.module.js";
 
-export const state = {
-  mesh: null,
-  path: [],
-  speed: 3,
-  direction: new THREE.Vector3(0, 0, 1),
-  length: 3,
-  trailMeshes: [],
-  speedBoost: 1.0, // Speed multiplier
-  boosting: false
-};
+export class Snake {
+  constructor(scene) {
+    this.scene = scene;
 
-export function initSnakeFromMesh(mesh) {
-  state.mesh = mesh;
-  state.mesh.castShadow = true;
-  state.path = [];
-  state.length = 3;
-  state.direction.set(0, 0, 1);
-  state.trailMeshes = [];
-  
-  // Initialize path
-  for (let i = 0; i < state.length; i++) {
-    state.path.push(mesh.position.clone().add(new THREE.Vector3(0, 0, -i * 0.1)));
+    // --- Physical parameters ---
+    this.currentLength = 2.2;     // starting length (world units)
+    this.maxLength = 30.0;
+    this.growRate = 0.8;
+
+    this.bodyRadius = 0.28;
+    this.tailRadius = 0.10;
+
+    // --- Spine ---
+    this.spine = [];
+    this.minPointDistance = 0.04; // controls smoothness vs performance
+
+    // --- Mesh ---
+    this.mesh = null;
+    this.radialSegments = 12;
+    this.tubularSegments = 72;
+
+    this._initMesh();
   }
-}
 
-export function getHeadPosition() {
-  return state.mesh.position.clone();
-}
+  /* ---------------------------------------------------------------- */
+  /* Initialization                                                   */
+  /* ---------------------------------------------------------------- */
 
-export function getHeadDirection() {
-  return state.direction.clone();
-}
+  _initMesh() {
+    // Temporary straight curve to initialize geometry
+    const p0 = new THREE.Vector3(0, 0, 0);
+    const p1 = new THREE.Vector3(0, 0, -0.1);
+    this.spine.push(p0, p1);
 
-export function updateSnake(delta) {
-  if (!state.mesh) return;
-  
-  // Get turn input and speed
-  const turnInput = getTurnInput();
-  const turnSpeed = getTurnSpeed();
-  
-  // Apply turning - smooth for holds, sharp for swipes
-  if (turnInput !== 0) {
-    const turnAmount = turnInput * turnSpeed * delta * 2.5;
-    const rotation = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(0, 1, 0),
-      turnAmount
+    const curve = new THREE.CatmullRomCurve3(this.spine, false, "catmullrom", 0.4);
+
+    const geometry = new THREE.TubeGeometry(
+      curve,
+      this.tubularSegments,
+      this.bodyRadius,
+      this.radialSegments,
+      false
     );
-    state.direction.applyQuaternion(rotation).normalize();
-  }
 
-  // Move head forward - always moving in runner style
-  const moveVec = state.direction.clone().multiplyScalar(state.speed * state.speedBoost * delta);
-  state.mesh.position.add(moveVec);
+    this._applyTaper(geometry);
 
-  // Update head rotation to face movement direction
-  state.mesh.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 0, 1),
-    state.direction
-  );
-  
-  // Create speed trail particles when boosting
-  if (state.boosting && Math.random() < 0.3) {
-    createSpeedParticle(state.mesh.position);
-  }
-
-  // Update path for trail
-  state.path.unshift(state.mesh.position.clone());
-  
-  // Keep path at appropriate length (more segments for smoother trail)
-  const segmentSpacing = 0.15;
-  const maxPathLength = state.length * (1 / segmentSpacing);
-  while (state.path.length > maxPathLength) {
-    state.path.pop();
-  }
-
-  // Update trail segments
-  updateTrail();
-}
-
-function updateTrail() {
-  // Remove excess trail meshes
-  while (state.trailMeshes.length > state.length) {
-    const mesh = state.trailMeshes.pop();
-    world.remove(mesh);
-    mesh.geometry.dispose();
-    mesh.material.dispose();
-  }
-
-  // Add new trail segments if needed
-  while (state.trailMeshes.length < state.length) {
-    const segmentGeo = new THREE.SphereGeometry(0.2, 24, 24); // Higher poly spheres
-    const hue = (state.trailMeshes.length / state.length) * 0.15 + 0.45; // Cyan to green gradient
-    const segmentMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color().setHSL(hue, 0.85, 0.6),
-      metalness: 0.6,
-      roughness: 0.25,
-      emissive: new THREE.Color().setHSL(hue, 0.85, 0.35),
-      emissiveIntensity: 0.3
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x33ff88,
+      roughness: 0.35,
+      metalness: 0.08
     });
-    const segmentMesh = new THREE.Mesh(segmentGeo, segmentMat);
-    segmentMesh.castShadow = true;
-    world.add(segmentMesh);
-    state.trailMeshes.push(segmentMesh);
+
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.castShadow = true;
+    this.mesh.receiveShadow = false;
+
+    this.scene.add(this.mesh);
   }
 
-  // Position trail segments along path
-  const segmentSpacing = 6; // Path indices between segments
-  for (let i = 0; i < state.trailMeshes.length; i++) {
-    const pathIndex = Math.min(i * segmentSpacing, state.path.length - 1);
-    if (pathIndex < state.path.length) {
-      state.trailMeshes[i].position.copy(state.path[pathIndex]);
-      
-      // Scale segments slightly smaller as they go back
-      const scale = 1 - (i / state.length) * 0.3;
-      state.trailMeshes[i].scale.setScalar(scale);
+  /* ---------------------------------------------------------------- */
+  /* Public API                                                       */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Call once per frame AFTER head movement
+   * @param {THREE.Vector3} headPosition
+   */
+  update(headPosition) {
+    this._updateSpine(headPosition);
+    this._rebuildGeometry();
+  }
+
+  /**
+   * Call when food is eaten
+   */
+  grow() {
+    this.currentLength = Math.min(
+      this.currentLength + this.growRate,
+      this.maxLength
+    );
+  }
+
+  /**
+   * Optional: reset on death / room transition
+   */
+  reset(position) {
+    this.spine.length = 0;
+    this.spine.push(
+      position.clone(),
+      position.clone().add(new THREE.Vector3(0, 0, -0.1))
+    );
+    this.currentLength = 2.2;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Spine logic                                                      */
+  /* ---------------------------------------------------------------- */
+
+  _updateSpine(headPos) {
+    const last = this.spine[0];
+
+    // Prevent oversampling
+    if (last && last.distanceToSquared(headPos) < this.minPointDistance ** 2) {
+      return;
+    }
+
+    this.spine.unshift(headPos.clone());
+
+    // Trim spine to physical length
+    let accumulated = 0;
+    for (let i = 0; i < this.spine.length - 1; i++) {
+      accumulated += this.spine[i].distanceTo(this.spine[i + 1]);
+      if (accumulated > this.currentLength) {
+        this.spine.length = i + 1;
+        break;
+      }
     }
   }
-}
 
-export function growSnake() {
-  state.length++;
-}
+  /* ---------------------------------------------------------------- */
+  /* Geometry                                                         */
+  /* ---------------------------------------------------------------- */
 
-export function checkSelfCollision() {
-  if (state.length < 5) return false; // Can't collide with yourself when too short
-  
-  const headPos = getHeadPosition();
-  const collisionRadius = 0.35;
-  
-  // Check collision with trail segments (skip first few to avoid immediate collision)
-  for (let i = 4; i < state.trailMeshes.length; i++) {
-    const dist = headPos.distanceTo(state.trailMeshes[i].position);
-    if (dist < collisionRadius) {
-      return true;
-    }
+  _rebuildGeometry() {
+    if (this.spine.length < 2) return;
+
+    const curve = new THREE.CatmullRomCurve3(
+      this.spine,
+      false,
+      "catmullrom",
+      0.4
+    );
+
+    const geometry = new THREE.TubeGeometry(
+      curve,
+      this.tubularSegments,
+      this.bodyRadius,
+      this.radialSegments,
+      false
+    );
+
+    this._applyTaper(geometry);
+    geometry.computeVertexNormals();
+
+    this.mesh.geometry.dispose();
+    this.mesh.geometry = geometry;
   }
-  
-  return false;
-}
 
-// Speed particles effect
-const speedParticles = [];
+  _applyTaper(geometry) {
+    const pos = geometry.attributes.position;
+    const count = pos.count;
 
-function createSpeedParticle(position) {
-  const geo = new THREE.SphereGeometry(0.08, 8, 8);
-  const mat = new THREE.MeshBasicMaterial({
-    color: 0x88ffcc,
-    transparent: true,
-    opacity: 0.8
-  });
-  const particle = new THREE.Mesh(geo, mat);
-  particle.position.copy(position);
-  particle.userData.life = 1.0;
-  world.add(particle);
-  speedParticles.push(particle);
-  
-  // Cleanup old particles
-  if (speedParticles.length > 50) {
-    const old = speedParticles.shift();
-    world.remove(old);
-    old.geometry.dispose();
-    old.material.dispose();
-  }
-}
+    for (let i = 0; i < count; i++) {
+      // t = 0 head, 1 tail
+      const t = i / (count - 1);
 
-// Update speed particles
-export function updateSpeedParticles() {
-  for (let i = speedParticles.length - 1; i >= 0; i--) {
-    const p = speedParticles[i];
-    p.userData.life -= 0.05;
-    p.material.opacity = p.userData.life;
-    p.scale.multiplyScalar(0.95);
-    
-    if (p.userData.life <= 0) {
-      world.remove(p);
-      p.geometry.dispose();
-      p.material.dispose();
-      speedParticles.splice(i, 1);
+      // Smooth exponential taper (avoids pinching)
+      const radius = THREE.MathUtils.lerp(
+        this.bodyRadius,
+        this.tailRadius,
+        t * t
+      );
+
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      const scale = radius / this.bodyRadius;
+
+      pos.setXYZ(
+        i,
+        x * scale,
+        y * scale,
+        z
+      );
     }
+
+    pos.needsUpdate = true;
   }
 }
