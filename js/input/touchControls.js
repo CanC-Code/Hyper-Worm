@@ -1,7 +1,10 @@
-// Press-and-hold steering input
+/// touchControls.js
+/// Press-and-hold swipe steering input
+/// Made by CCVO - CanC-Code
+
 import * as THREE from "../../three/three.module.js";
 
-let currentDir = new THREE.Vector2(0, 1);
+let yawInput = 0;
 let touchStart = null;
 
 export function initTouchControls() {
@@ -12,13 +15,15 @@ export function initTouchControls() {
   window.addEventListener("touchmove", (e) => {
     if (!touchStart) return;
     const dx = e.touches[0].clientX - touchStart.x;
-    const dy = e.touches[0].clientY - touchStart.y;
-    const vec = new THREE.Vector2(dx, -dy);
-    if (vec.length() > 0) vec.normalize();
-    currentDir.copy(vec);
+    yawInput = dx * 0.002; // sensitivity factor
   });
 
-  window.addEventListener("touchend", () => { touchStart = null; });
+  window.addEventListener("touchend", () => {
+    touchStart = null;
+    yawInput = 0;
+  });
 }
 
-export function getDirectionVector() { return currentDir.clone(); }
+export function getYawInput() {
+  return yawInput;
+}
