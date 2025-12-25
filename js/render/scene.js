@@ -1,9 +1,8 @@
 /// scene.js
-/// Scene, renderer, lighting, world container, and camera logic
+/// Scene, renderer, lighting, camera, and world
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { state as snakeState } from "../game/snake.js";
 
 /* ---------- SCENE ---------- */
 export const scene = new THREE.Scene();
@@ -12,17 +11,14 @@ scene.fog = new THREE.Fog(0x000000, 6, 60);
 
 /* ---------- CAMERA ---------- */
 export const camera = new THREE.PerspectiveCamera(
-  85, 
+  75,
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 );
 
 /* ---------- RENDERER ---------- */
-export const renderer = new THREE.WebGLRenderer({
-  antialias: true,
-  powerPreference: "high-performance",
-});
+export const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(window.devicePixelRatio || 1);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -31,22 +27,19 @@ renderer.shadowMap.enabled = true;
 export const world = new THREE.Group();
 scene.add(world);
 
-/* ---------- LIGHTING ---------- */
-const ambient = new THREE.AmbientLight(0xffffff, 0.45);
+/* ---------- LIGHT ---------- */
+const ambient = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambient);
 
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+const sun = new THREE.DirectionalLight(0xffffff, 1);
 sun.position.set(8, 12, 6);
 sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
 scene.add(sun);
 
 /* ---------- FLOOR ---------- */
 const floorGeo = new THREE.PlaneGeometry(500, 500);
-const floorMat = new THREE.MeshStandardMaterial({
-  color: 0x1a1a1a,
-  roughness: 0.85,
-  metalness: 0.15,
-});
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.85, metalness: 0.15 });
 const floor = new THREE.Mesh(floorGeo, floorMat);
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
@@ -60,22 +53,17 @@ export function resizeRenderer() {
 }
 
 /* ---------- CAMERA FOLLOW ---------- */
-export function updateCamera(delta) {
-  if (!snakeState.mesh || !snakeState.segments.length) return;
-
-  const head = snakeState.segments[0]; // head
-  const forward = snakeState.direction.clone().normalize();
-
+export function updateCamera(snakeHead, forwardVec) {
   const CAMERA_DISTANCE = 3.5;
   const CAMERA_HEIGHT = 1.2;
   const CAMERA_LERP = 0.15;
 
-  const desiredPosition = head.position.clone()
-    .add(forward.clone().multiplyScalar(-CAMERA_DISTANCE))
+  const desiredPos = snakeHead.position.clone()
+    .add(forwardVec.clone().multiplyScalar(-CAMERA_DISTANCE))
     .add(new THREE.Vector3(0, CAMERA_HEIGHT, 0));
 
-  camera.position.lerp(desiredPosition, CAMERA_LERP);
+  camera.position.lerp(desiredPos, CAMERA_LERP);
 
-  const lookTarget = head.position.clone().add(forward.clone().multiplyScalar(6));
+  const lookTarget = snakeHead.position.clone().add(forwardVec.clone().multiplyScalar(2));
   camera.lookAt(lookTarget);
 }
