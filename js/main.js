@@ -1,5 +1,5 @@
 /// main.js
-/// Game loop with fixed camera behind snake, dynamic steering
+/// Full snake game loop with egg intro
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
@@ -37,14 +37,19 @@ initTouchControls();
 
 /* ---------- START GAME WITH EGG MORPH ---------- */
 spawnSmoothEggSnake((snakeMesh) => {
+  // Position camera above/back for intro
+  camera.position.copy(snakeMesh.position.clone().add(new THREE.Vector3(0, 3, -5)));
+  camera.lookAt(snakeMesh.position);
+
+  // Morph animation is handled in eggSnakeMorph.js, callback gives snake mesh
   resetGame(snakeMesh);
 
   let lastTime = performance.now();
   const baseSpeed = 2;
   const speedIncrement = 0.05;
 
-  function animate(now) {
-    requestAnimationFrame(animate);
+  function gameLoop(now) {
+    requestAnimationFrame(gameLoop);
     const delta = (now - lastTime) / 1000;
     lastTime = now;
 
@@ -53,10 +58,10 @@ spawnSmoothEggSnake((snakeMesh) => {
       return;
     }
 
-    // Progressive speed ramp
+    // Speed ramp
     snakeState.speed = baseSpeed + now / 1000 * speedIncrement;
 
-    // Input → snake direction
+    // Steering input
     const dir = getDirectionVector();
     setDirection({ x: dir.x, y: dir.y });
 
@@ -82,11 +87,11 @@ spawnSmoothEggSnake((snakeMesh) => {
       updateHUD();
     }
 
-    // Fixed camera behind snake
+    // Camera fixed behind snake
     updateCamera(delta);
 
     renderer.render(scene, camera);
   }
 
-  requestAnimationFrame(animate);
+  requestAnimationFrame(gameLoop);
 });
