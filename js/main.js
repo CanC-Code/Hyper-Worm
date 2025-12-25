@@ -1,9 +1,9 @@
 /// main.js
-/// Purpose: Game loop with dynamic 3D POV snake
+/// Game loop with fixed camera behind snake, dynamic steering
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
-import { scene, camera, renderer, resizeRenderer, world } from "./render/scene.js";
+import { scene, camera, renderer, resizeRenderer, world, updateCamera } from "./render/scene.js";
 import { state as snakeState, initSnakeFromMesh, updateSnake, growSnake, getHeadPosition, setDirection } from "./game/snake.js";
 import { state, resetGameState } from "./game/gameState.js";
 import { buildRoom, clearRoom } from "./game/room.js";
@@ -39,12 +39,9 @@ initTouchControls();
 spawnSmoothEggSnake((snakeMesh) => {
   resetGame(snakeMesh);
 
-  // Start game loop
   let lastTime = performance.now();
-  let moveAccumulator = 0;
-
-  const baseSpeed = 2;          // starting slow
-  const speedIncrement = 0.05;  // per second
+  const baseSpeed = 2;
+  const speedIncrement = 0.05;
 
   function animate(now) {
     requestAnimationFrame(animate);
@@ -63,7 +60,7 @@ spawnSmoothEggSnake((snakeMesh) => {
     const dir = getDirectionVector();
     setDirection({ x: dir.x, y: dir.y });
 
-    // Update snake movement
+    // Update snake
     updateSnake(delta);
 
     const headPos = getHeadPosition();
@@ -72,11 +69,8 @@ spawnSmoothEggSnake((snakeMesh) => {
     if (checkFoodCollision(headPos)) {
       growSnake();
       removeFood(world);
-      if (state.doorOpen) {
-        spawnDoor(world);
-      } else {
-        spawnFood(world);
-      }
+      if (state.doorOpen) spawnDoor(world);
+      else spawnFood(world);
       updateHUD();
     }
 
@@ -88,11 +82,8 @@ spawnSmoothEggSnake((snakeMesh) => {
       updateHUD();
     }
 
-    // Camera strictly follows snake head
-    const camOffset = new THREE.Vector3(0, 1.5, -3);
-    const desiredPos = snakeState.mesh.position.clone().add(camOffset);
-    camera.position.lerp(desiredPos, 0.1);
-    camera.lookAt(snakeState.mesh.position);
+    // Fixed camera behind snake
+    updateCamera(delta);
 
     renderer.render(scene, camera);
   }
