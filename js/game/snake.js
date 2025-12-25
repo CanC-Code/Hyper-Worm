@@ -84,14 +84,14 @@ function updateTrail() {
 
   // Add new trail segments if needed
   while (state.trailMeshes.length < state.length) {
-    const segmentGeo = new THREE.SphereGeometry(0.18, 12, 12);
+    const segmentGeo = new THREE.SphereGeometry(0.2, 24, 24); // Higher poly spheres
     const hue = (state.trailMeshes.length / state.length) * 0.15 + 0.45; // Cyan to green gradient
     const segmentMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color().setHSL(hue, 0.8, 0.6),
-      metalness: 0.5,
-      roughness: 0.3,
-      emissive: new THREE.Color().setHSL(hue, 0.8, 0.3),
-      emissiveIntensity: 0.2
+      color: new THREE.Color().setHSL(hue, 0.85, 0.6),
+      metalness: 0.6,
+      roughness: 0.25,
+      emissive: new THREE.Color().setHSL(hue, 0.85, 0.35),
+      emissiveIntensity: 0.3
     });
     const segmentMesh = new THREE.Mesh(segmentGeo, segmentMat);
     segmentMesh.castShadow = true;
