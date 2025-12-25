@@ -1,107 +1,93 @@
 /// snake.js
-/// Full 3D snake logic for Hyper-Worm
+/// Purpose: Procedural snake movement, growth, and steering
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { world } from "../render/scene.js";
 import { state as gameState } from "./gameState.js";
 
 /* ---------- SNAKE STATE ---------- */
 export const state = {
-  mesh: null,           // snake head mesh (root)
-  segments: [],         // array of segment meshes
-  direction: new THREE.Vector3(0, 0, 1),
-  speed: 2.0,
-  segmentSpacing: 0.5,  // distance between segments
+  mesh: null,           // THREE.Group from eggSnakeMorph.js
+  segments: [],         // individual segment meshes
+  head: null,           // reference to head mesh
+  direction: new THREE.Vector3(0, 0, 1), // forward
+  speed: 2,
+  segmentLength: 0.5
 };
 
-/* ---------- INIT SNAKE FROM MESH ---------- */
-export function initSnakeFromMesh(headMesh) {
-  state.mesh = headMesh;
-  state.mesh.castShadow = true;
-  state.mesh.receiveShadow = true;
-
-  // Clear previous segments
-  for (const seg of state.segments) {
-    world.remove(seg);
-    seg.geometry.dispose();
-    seg.material.dispose();
-  }
+/* ---------- INIT SNAKE ---------- */
+export function initSnakeFromMesh(snakeMesh) {
+  state.mesh = snakeMesh;
   state.segments = [];
 
-  // Initial segments
-  const segmentGeo = new THREE.CylinderGeometry(0.18, 0.18, state.segmentSpacing, 12);
-  const segmentMat = new THREE.MeshStandardMaterial({
-    color: 0x88ffcc,
-    roughness: 0.4,
-    metalness: 0.6,
-  });
-
-  for (let i = 0; i < 4; i++) {
-    const seg = new THREE.Mesh(segmentGeo, segmentMat);
-    seg.rotation.x = Math.PI / 2;
-    seg.position.copy(headMesh.position.clone().add(new THREE.Vector3(0, 0, -state.segmentSpacing * (i + 1))));
-    world.add(seg);
-    state.segments.push(seg);
-  }
-}
-
-/* ---------- UPDATE SNAKE ---------- */
-export function updateSnake(delta) {
-  if (!state.mesh) return;
-
-  // Compute movement
-  const moveVector = state.direction.clone().multiplyScalar(state.speed * delta);
-  const prevPos = state.mesh.position.clone();
-  state.mesh.position.add(moveVector);
-
-  // Update segments to follow head
-  let lastPos = prevPos;
-  for (let seg of state.segments) {
-    const segPos = seg.position.clone();
-    const dir = lastPos.clone().sub(seg.position).normalize();
-    seg.position.add(dir.multiplyScalar(state.speed * delta));
-    lastPos = segPos;
+  // Identify head as first child with geometry roughly radius ~0.22
+  for (const child of snakeMesh.children) {
+    if (child.geometry) {
+      if (child.geometry.parameters?.radiusTop || child.geometry.parameters?.radius) {
+        state.segments.push(child);
+      }
+      if (child.geometry.parameters?.radius === 0.22) state.head = child;
+    }
   }
 
-  // Rotate head to match direction
-  const targetQuat = new THREE.Quaternion().setFromUnitVectors(
-    new THREE.Vector3(0, 0, 1),
-    state.direction.clone().normalize()
-  );
-  state.mesh.quaternion.slerp(targetQuat, 0.2);
+  if (!state.head) state.head = state.segments[0];
 }
 
-/* ---------- GROW SNAKE ---------- */
+/* ---------- SNAKE GROWTH ---------- */
 export function growSnake() {
-  const segmentGeo = new THREE.CylinderGeometry(0.18, 0.18, state.segmentSpacing, 12);
-  const segmentMat = new THREE.MeshStandardMaterial({
-    color: 0x88ffcc,
-    roughness: 0.4,
-    metalness: 0.6,
-  });
+  const lastSegment = state.segments[state.segments.length - 1];
+  const radius = lastSegment.geometry.parameters.radiusTop || 0.2;
 
-  const lastSeg = state.segments[state.segments.length - 1] || state.mesh;
-  const seg = new THREE.Mesh(segmentGeo, segmentMat);
-  seg.rotation.x = Math.PI / 2;
-  seg.position.copy(lastSeg.position.clone().add(new THREE.Vector3(0, 0, -state.segmentSpacing)));
-  world.add(seg);
-  state.segments.push(seg);
-}
-
-/* ---------- DIRECTION CONTROL ---------- */
-export function setDirection(vec2) {
-  // vec2 = {x, y} from touch controls
-  const horizontal = new THREE.Vector3(vec2.x, 0, vec2.y);
-  if (horizontal.length() > 0.01) state.direction.lerp(horizontal.normalize(), 0.15);
+  const geo = new THREE.CylinderGeometry(radius * 0.95, radius * 0.95, state.segmentLength, 16);
+  const mat = lastSegment.material.clone();
+  const newSegment = new THREE.Mesh(geo, mat);
+  newSegment.rotation.x = Math.PI / 2;
+  newSegment.position.copy(lastSegment.position).add(new THREE.Vector3(0, 0, -state.segmentLength));
+  state.mesh.add(newSegment);
+  state.segments.push(newSegment);
 }
 
 /* ---------- GET HEAD POSITION ---------- */
 export function getHeadPosition() {
-  return state.mesh ? state.mesh.position.clone() : new THREE.Vector3();
+  if (!state.head) return new THREE.Vector3();
+  return state.head.getWorldPosition(new THREE.Vector3());
 }
 
 /* ---------- GET HEAD DIRECTION ---------- */
 export function getHeadDirection() {
   return state.direction.clone().normalize();
+}
+
+/* ---------- SET DIRECTION FROM INPUT ---------- */
+export function setDirection(vec2) {
+  // Rotate current direction by input vector
+  const turnSpeed = 1.5; // radians per second
+  const desiredAngle = Math.atan2(vec2.x, vec2.y); // x=left/right, y=forward/back
+
+  // Smoothly rotate the direction vector
+  const currentAngle = Math.atan2(state.direction.x, state.direction.z);
+  let deltaAngle = desiredAngle - currentAngle;
+  if (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
+  if (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
+
+  state.direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), deltaAngle * 0.15);
+}
+
+/* ---------- UPDATE SNAKE ---------- */
+export function updateSnake(delta) {
+  if (!state.mesh || state.segments.length === 0) return;
+
+  const moveDistance = state.speed * delta;
+
+  // Move head
+  state.head.position.add(state.direction.clone().multiplyScalar(moveDistance));
+
+  // Move each segment to follow previous
+  for (let i = 1; i < state.segments.length; i++) {
+    const prev = state.segments[i - 1];
+    const seg = state.segments[i];
+
+    const targetPos = prev.position.clone().add(new THREE.Vector3(0, 0, -state.segmentLength));
+    seg.position.lerp(targetPos, 0.3);
+  }
 }
