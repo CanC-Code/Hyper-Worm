@@ -1,0 +1,33 @@
+Hyper Worm License
+
+Copyright (c) 2025 CCVO (CanC-Code)
+All rights reserved.
+
+Hyper Worm is proprietary software.
+
+Permission is granted to users to access and play Hyper Worm through its official distributions, including HTML5 and supported platforms.
+
+Users may record, stream, and share gameplay footage or screenshots, including for commercial purposes, provided proper attribution is given.
+
+Attribution Requirement:
+Any public presentation, distribution page, or bundled build must display the credit:
+“Hyper Worm by CCVO (CanC-Code)”
+
+Restrictions:
+- The source code, assets, binaries, and game logic of Hyper Worm may not be accessed, copied, extracted, reverse engineered, decompiled, redistributed, or used to create derivative works.
+- License notices, copyright notices, and attribution requirements may not be removed, altered, or bypassed.
+
+Ownership:
+All rights, title, and interest in Hyper Worm and its intellectual property remain the exclusive property of CCVO (CanC-Code).
+
+No Warranty:
+The software is provided “as-is”, without warranty of any kind.
+CCVO is not liable for damages, data loss, or other issues arising from use of the software.
+
+Termination:
+Any violation of these terms immediately terminates the user’s right to use Hyper Worm.
+
+Governing Law:
+This license is governed by the laws of the jurisdiction of CCVO (CanC-Code).
+
+By playing or using Hyper Worm, you agree to these terms.
