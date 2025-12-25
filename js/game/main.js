@@ -3,7 +3,7 @@
 /// Made by CCVO - CanC-Code
 
 // Local Three.js imports
-import * as THREE from "../three/three.module.js";  // corrected path
+import * as THREE from "../../three/three.module.js";  // corrected path
 import { scene, camera, renderer, resizeRenderer } from "./render/scene.js";
 import { state, resetGameState } from "./game/gameState.js";
 import { initSnake, updateSnake, growSnake, getHeadPosition, setDirection } from "./game/snake.js";
