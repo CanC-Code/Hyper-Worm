@@ -1,17 +1,17 @@
 /// main.js
-/// Purpose: Full Hyper-Worm 3D game loop with POV snake, cinematic intro, procedural rooms, doors, and HUD
+/// Purpose: Hyper-Worm full loop with single-mesh smooth snake
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
 import { scene, camera, renderer, resizeRenderer, world, initWorldDragControls } from "./render/scene.js";
 import { updateCamera } from "./render/cameraController.js";
-import { state as snakeState, initSnake, updateSnake, growSnake, getHeadPosition, setDirection } from "./game/snake.js";
+import { state as snakeState, initSnakeFromMesh, updateSnake, growSnake, getHeadPosition, setDirection } from "./game/snake.js";
 import { state, resetGameState } from "./game/gameState.js";
 import { buildRoom, clearRoom } from "./game/room.js";
 import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
 import { spawnDoor, checkDoorEntry, clearDoor, checkWallCollision } from "./game/door.js";
 import { initTouchControls, getDirectionVector } from "./input/touchControls.js";
-import { spawnIntroEgg } from "./game/eggSnakeMorph.js";
+import { spawnSmoothEggSnake } from "./game/eggSnakeMorph.js";
 
 /* ---------- HUD ---------- */
 const hud = document.getElementById("hud");
@@ -28,9 +28,9 @@ function resetGame() {
   // Build procedural room
   buildRoom(world, 12, 5, 12);
 
-  // Spawn cinematic intro egg
-  spawnIntroEgg(() => {
-    // After intro, spawn initial food and update HUD
+  // Spawn cinematic egg → morph into snake
+  spawnSmoothEggSnake((snakeMesh) => {
+    initSnakeFromMesh(snakeMesh);
     spawnFood(world);
     updateHUD();
   });
@@ -56,10 +56,7 @@ function animate(now) {
   const delta = (now - lastTime) / 1000;
   lastTime = now;
 
-  if (!state.alive) {
-    resetGame();
-    return;
-  }
+  if (!state.alive || !snakeState.mesh) return;
 
   // Progressive speed ramp
   snakeState.speed = baseSpeed + now / 1000 * speedIncrement;
@@ -77,7 +74,7 @@ function animate(now) {
 
     const headPos = getHeadPosition();
 
-    // Wall collision → reset game
+    // Wall collision
     if (checkWallCollision(headPos)) {
       resetGame();
       return;
@@ -85,7 +82,7 @@ function animate(now) {
 
     // Food
     if (checkFoodCollision(headPos)) {
-      growSnake(world);
+      growSnake();
       removeFood(world);
 
       // Door logic
@@ -100,7 +97,6 @@ function animate(now) {
 
     // Door entry
     if (state.doorOpen && checkDoorEntry(headPos)) {
-      // Smooth door open animation
       if (doorTween) cancelAnimationFrame(doorTween);
       doorTween = animateDoorOpen(state.door);
 
@@ -122,7 +118,7 @@ function animate(now) {
 function animateDoorOpen(doorMesh, duration = 1000) {
   if (!doorMesh) return;
   const startY = doorMesh.position.y;
-  const endY = startY + 5; // lift door upward
+  const endY = startY + 5;
   const startTime = performance.now();
 
   function step() {
@@ -137,7 +133,7 @@ function animateDoorOpen(doorMesh, duration = 1000) {
   requestAnimationFrame(step);
 }
 
-/* ---------- Lighting & Environment ---------- */
+/* ---------- Lighting ---------- */
 if (!scene.getObjectByName("mainLight")) {
   const dirLight = new THREE.DirectionalLight(0xffffff, 1);
   dirLight.position.set(10, 15, 10);
