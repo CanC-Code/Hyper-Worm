@@ -1,86 +1,86 @@
 /// door.js
-/// Procedurally generate doors on room walls
+/// Smooth door spawning, animation, and collision
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { world } from "../render/scene.js";
-import { state as roomState } from "./room.js";
-import { getHeadPosition } from "./snake.js";
+import { state } from "./gameState.js";
 
-export const state = {
-  door: null,
-  doorOpen: false,
-  doorWidth: 2,
-  doorHeight: 3,
-  wall: null,  // reference wall plane
-};
+let doorMesh = null;
+let openProgress = 0;
+const OPEN_SPEED = 2.0; // seconds to fully open
 
-/* ---------- Spawn Door ---------- */
-export function spawnDoor(worldRef) {
-  if (state.doorOpen) return;
+const doorMaterial = new THREE.MeshStandardMaterial({
+  color: 0x00ff88,
+  metalness: 0.6,
+  roughness: 0.4,
+  side: THREE.DoubleSide,
+});
 
-  // Pick a wall randomly
-  const walls = roomState.walls;
-  const wallIndex = Math.floor(Math.random() * walls.length);
-  state.wall = walls[wallIndex];
+const doorGeometry = new THREE.PlaneGeometry(2, 3); // width x height
 
-  // Create door plane
-  const doorGeo = new THREE.PlaneGeometry(state.doorWidth, state.doorHeight);
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0xffff00, side: THREE.DoubleSide });
-  const door = new THREE.Mesh(doorGeo, doorMat);
+/**
+ * Spawn a smooth door at the center of +Z wall
+ * @param {THREE.Group} sceneRoot
+ */
+export function spawnDoor(sceneRoot) {
+  if (doorMesh) return; // already spawned
 
-  // Position door centered on wall
-  const w = state.wall;
-  if (Math.abs(w.position.x) > 0.1) { // left/right wall
-    door.rotation.y = w.rotation.y;
-    door.position.set(w.position.x, state.doorHeight / 2, 0);
-  } else { // front/back wall
-    door.rotation.y = w.rotation.y;
-    door.position.set(0, state.doorHeight / 2, w.position.z);
+  doorMesh = new THREE.Mesh(doorGeometry, doorMaterial);
+  doorMesh.position.set(0, 1.5, sceneRoot.position.z + 6); // front wall
+  doorMesh.rotation.y = 0;
+
+  doorMesh.userData.open = 0; // 0 = closed, 1 = fully open
+  sceneRoot.add(doorMesh);
+}
+
+/**
+ * Animate door opening
+ * Call every frame in game loop
+ * @param {number} delta
+ */
+export function updateDoor(delta) {
+  if (!doorMesh) return;
+
+  if (state.doorOpen && doorMesh.userData.open < 1) {
+    doorMesh.userData.open += delta / OPEN_SPEED;
+    if (doorMesh.userData.open > 1) doorMesh.userData.open = 1;
   }
 
-  worldRef.add(door);
-  state.door = door;
-  state.doorOpen = true;
+  // Smoothly move door aside (sliding)
+  const openOffset = doorMesh.userData.open * 1.5; // slide 1.5 units
+  doorMesh.position.x = openOffset;
 }
 
-/* ---------- Check if Snake Entered Door ---------- */
-export function checkDoorEntry(headPos) {
-  if (!state.doorOpen || !state.door) return false;
+/**
+ * Check if snake has entered the door
+ * @param {THREE.Vector3} headPos
+ * @param {THREE.Group} sceneRoot
+ * @returns {boolean}
+ */
+export function checkDoorEntry(headPos, sceneRoot) {
+  if (!doorMesh || doorMesh.userData.open < 0.9) return false;
 
-  const doorPos = state.door.position;
-  const dx = Math.abs(headPos.x - doorPos.x);
-  const dy = Math.abs(headPos.y - doorPos.y);
-  const dz = Math.abs(headPos.z - doorPos.z);
-
-  const withinX = dx <= state.doorWidth / 2;
-  const withinY = dy <= state.doorHeight / 2;
-  const withinZ = dz <= state.doorWidth / 2; // assuming square door depth
-
-  return withinX && withinY && withinZ;
-}
-
-/* ---------- Clear Door ---------- */
-export function clearDoor(worldRef) {
-  if (state.door) {
-    worldRef.remove(state.door);
-    state.door.geometry.dispose();
-    state.door.material.dispose();
-    state.door = null;
-    state.doorOpen = false;
-    state.wall = null;
+  const dx = headPos.x - doorMesh.position.x;
+  const dz = headPos.z - doorMesh.position.z;
+  if (Math.abs(dx) < 1 && Math.abs(dz) < 1) {
+    state.doorOpen = false; // reset
+    sceneRoot.remove(doorMesh);
+    doorMesh.geometry.dispose();
+    doorMesh.material.dispose();
+    doorMesh = null;
+    return true;
   }
-}
-
-/* ---------- Collision Detection with Walls ---------- */
-export function checkWallCollision(headPos) {
-  const padding = 0.3; // snake head radius
-  const w = roomState;
-
-  if (headPos.x < -w.roomWidth/2 + padding) return true;
-  if (headPos.x > w.roomWidth/2 - padding) return true;
-  if (headPos.z < -w.roomDepth/2 + padding) return true;
-  if (headPos.z > w.roomDepth/2 - padding) return true;
-
   return false;
+}
+
+/**
+ * Force clear door from scene
+ * @param {THREE.Group} sceneRoot
+ */
+export function clearDoor(sceneRoot) {
+  if (!doorMesh) return;
+  sceneRoot.remove(doorMesh);
+  doorMesh.geometry.dispose();
+  doorMesh.material.dispose();
+  doorMesh = null;
 }
