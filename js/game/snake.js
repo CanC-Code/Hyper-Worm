@@ -1,5 +1,5 @@
 /// snake.js
-/// Purpose: Procedural snake with POV and safe infinite growth
+/// Purpose: Single-mesh smooth snake with infinite growth
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
@@ -7,51 +7,29 @@ import { world } from "../render/scene.js";
 
 /* ---------- Snake State ---------- */
 export const state = {
-  head: null,
-  segments: [],
-  tail: null,
+  mesh: null,          // single mesh
   speed: 2,
-  direction: new THREE.Vector3(0, 0, 1), // normalized forward vector
-  segmentLength: 0.8,
+  direction: new THREE.Vector3(0, 0, 1),
+  mouthVertices: [],   // indices for mouth animation
+  tailZ: 0,
 };
 
-/* ---------- Initialize Snake ---------- */
-export function initSnake(worldRef) {
-  state.head = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.3, 0.5, 4, 8),
-    new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true })
-  );
-  state.head.position.set(0, 0, 0);
-  worldRef.add(state.head);
+/* ---------- Initialize Snake from existing mesh ---------- */
+export function initSnakeFromMesh(mesh) {
+  state.mesh = mesh;
+  world.add(state.mesh);
 
-  state.segments = [];
-  // Start with 3 segments
-  for (let i = 1; i <= 3; i++) {
-    addSegment(worldRef, i);
+  // Identify mouth vertices (top/front of egg)
+  const pos = state.mesh.geometry.attributes.position;
+  const vertexCount = pos.count;
+  state.mouthVertices = [];
+  for (let i = 0; i < vertexCount; i++) {
+    if (pos.getZ(i) > 0.4) state.mouthVertices.push(i);
   }
 
-  // Tail
-  state.tail = new THREE.Mesh(
-    new THREE.ConeGeometry(0.15, 0.5, 8),
-    new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true })
-  );
-  state.tail.rotation.x = Math.PI / 2;
-  state.tail.position.set(0, 0, -(state.segments.length + 1) * state.segmentLength);
-  worldRef.add(state.tail);
-}
-
-/* ---------- Add Segment ---------- */
-export function addSegment(worldRef, indexOffset = 0) {
-  const segGeo = new THREE.CylinderGeometry(0.25, 0.25, state.segmentLength, 8);
-  const segMat = new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true });
-  const seg = new THREE.Mesh(segGeo, segMat);
-  seg.rotation.x = Math.PI / 2;
-
-  const zPos = -(state.segments.length + 1 + indexOffset) * state.segmentLength;
-  seg.position.set(0, 0, zPos);
-
-  worldRef.add(seg);
-  state.segments.push(seg);
+  // Tail Z coordinate for growth reference
+  const positions = pos.array;
+  state.tailZ = Math.min(...positions.filter((_, i) => i % 3 === 2));
 }
 
 /* ---------- Set Direction ---------- */
@@ -63,47 +41,44 @@ export function setDirection(dirVec) {
   }
 }
 
-/* ---------- Get Head Info ---------- */
-export function getHeadPosition() {
-  return state.head.position.clone();
-}
-
-export function getHeadDirection() {
-  return state.direction.clone();
-}
-
 /* ---------- Update Snake ---------- */
 export function updateSnake(delta) {
   const moveDist = state.speed * delta;
 
-  // Move head
-  state.head.position.addScaledVector(state.direction, moveDist);
+  // Move mesh along direction
+  state.mesh.position.addScaledVector(state.direction, moveDist);
 
-  // Smoothly move segments
-  let prevPos = state.head.position.clone();
-  for (const seg of state.segments) {
-    const segToPrev = prevPos.clone().sub(seg.position);
-    if (segToPrev.length() > state.segmentLength) {
-      seg.position.add(segToPrev.setLength(segToPrev.length() - state.segmentLength));
-    }
-    prevPos = seg.position.clone();
+  // Optional: mouth animation shrink back
+  const pos = state.mesh.geometry.attributes.position;
+  for (const idx of state.mouthVertices) {
+    const x = pos.getX(idx);
+    const y = pos.getY(idx);
+    let z = pos.getZ(idx);
+    pos.setZ(idx, z); // placeholder for future mouth expansion
   }
+  pos.needsUpdate = true;
 
-  // Tail follows last segment
-  const lastSeg = state.segments[state.segments.length - 1];
-  const tailToPrev = lastSeg.position.clone().sub(state.tail.position);
-  if (tailToPrev.length() > state.segmentLength) {
-    state.tail.position.add(tailToPrev.setLength(tailToPrev.length() - state.segmentLength));
-  }
+  // Update tail Z for growth
+  const positions = pos.array;
+  state.tailZ += moveDist; // virtual extension
 }
 
-/* ---------- Grow Snake Safely ---------- */
-export function growSnake(worldRef) {
-  // Add new segment at tail
-  addSegment(worldRef);
+/* ---------- Grow Snake ---------- */
+export function growSnake() {
+  if (!state.mesh) return;
+  const pos = state.mesh.geometry.attributes.position;
+  const vertexCount = pos.count;
+  // Stretch all Z positions forward to simulate growth
+  for (let i = 0; i < vertexCount; i++) {
+    const z = pos.getZ(i);
+    pos.setZ(i, z + 0.05); // small growth increment
+  }
+  pos.needsUpdate = true;
+  state.tailZ += 0.05;
+}
 
-  // Move tail backward to maintain spacing
-  const lastSeg = state.segments[state.segments.length - 1];
-  const tailOffset = state.tail.position.clone().sub(lastSeg.position).normalize().multiplyScalar(state.segmentLength);
-  state.tail.position.add(tailOffset);
+/* ---------- Get Head Position ---------- */
+export function getHeadPosition() {
+  if (!state.mesh) return new THREE.Vector3();
+  return state.mesh.position.clone().add(new THREE.Vector3(0, 0, 0.5));
 }
