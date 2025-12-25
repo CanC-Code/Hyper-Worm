@@ -1,63 +1,41 @@
 /// food.js
-/// Purpose: Food spawning and collision
+/// Food spawning and collision
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { state as gameState, registerBite } from "./gameState.js";
-import { state as roomState } from "./room.js";
+import { state, registerBite } from "./gameState.js";
 
-let food = null;
+let foodMesh = null;
 
-const foodGeometry = new THREE.SphereGeometry(0.35, 16, 16);
+export function spawnFood(world) {
+  if (foodMesh) world.remove(foodMesh);
 
-const foodMaterial = new THREE.MeshStandardMaterial({
-  color: 0xff5555,
-  roughness: 0.3,
-  metalness: 0.1,
-  emissive: 0x330000,
-});
+  const geo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xff4444 });
+  foodMesh = new THREE.Mesh(geo, mat);
 
-/* ---------- Spawn Food ---------- */
-export function spawnFood(worldRef) {
-  if (food) {
-    worldRef.remove(food);
-    food = null;
-  }
-
-  food = new THREE.Mesh(foodGeometry, foodMaterial);
-
-  const margin = 1.5;
-  const halfW = roomState.roomWidth / 2 - margin;
-  const halfD = roomState.roomDepth / 2 - margin;
-
-  food.position.set(
-    THREE.MathUtils.randFloat(-halfW, halfW),
-    0.35,
-    THREE.MathUtils.randFloat(-halfD, halfD)
+  const range = state.roomSize / 2 - 1;
+  foodMesh.position.set(
+    Math.floor(Math.random() * range * 2 - range),
+    0.3,
+    Math.floor(Math.random() * range * 2 - range)
   );
-
-  worldRef.add(food);
+  world.add(foodMesh);
 }
 
-/* ---------- Collision ---------- */
-export function checkFoodCollision(headPosition) {
-  if (!food) return false;
-
-  const dist = food.position.distanceTo(headPosition);
-  if (dist < 0.75) {
+export function checkFoodCollision(headPos) {
+  if (!foodMesh) return false;
+  if (headPos.distanceTo(foodMesh.position) < 0.5) {
     registerBite();
     return true;
   }
-
   return false;
 }
 
-/* ---------- Remove ---------- */
-export function removeFood(worldRef) {
-  if (!food) return;
-
-  worldRef.remove(food);
-  food.geometry.dispose();
-  food.material.dispose();
-  food = null;
+export function removeFood(world) {
+  if (!foodMesh) return;
+  world.remove(foodMesh);
+  foodMesh.geometry.dispose();
+  foodMesh.material.dispose();
+  foodMesh = null;
 }
