@@ -1,5 +1,5 @@
 /// touchControls.js
-/// Dynamic press-and-hold steering
+/// Press-and-hold steering input
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
@@ -22,7 +22,7 @@ export function initTouchControls() {
   });
 
   window.addEventListener("touchend", () => {
-    touchStart = null; // maintain last direction
+    touchStart = null;
   });
 }
 
