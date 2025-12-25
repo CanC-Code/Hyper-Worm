@@ -1,39 +1,153 @@
 /// eggSnakeMorph.js
-/// Creates egg intro that morphs into the snake
+/// Creates egg intro that morphs into the snake with enhanced visuals - ENHANCED
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { world } from "../render/scene.js";
+import { world, scene } from "../render/scene.js";
 
 export function spawnSmoothEggSnake(callback) {
+  // Create egg with glow
   const eggGeo = new THREE.SphereGeometry(0.5, 32, 32);
-  eggGeo.scale(1, 1.3, 1);
-  const eggMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.1, roughness: 0.8 });
+  eggGeo.scale(1, 1.4, 1);
+  const eggMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 0.3,
+    roughness: 0.6,
+    emissive: 0xccffee,
+    emissiveIntensity: 0.3
+  });
   const eggMesh = new THREE.Mesh(eggGeo, eggMat);
-  eggMesh.position.set(0, 0.5, 0);
+  eggMesh.position.set(0, 0.7, 0);
+  eggMesh.castShadow = true;
   world.add(eggMesh);
 
+  // Add outer glow
+  const glowGeo = new THREE.SphereGeometry(0.65, 32, 32);
+  glowGeo.scale(1, 1.4, 1);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xaaffee,
+    transparent: true,
+    opacity: 0.2,
+    side: THREE.BackSide
+  });
+  const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+  glowMesh.position.copy(eggMesh.position);
+  world.add(glowMesh);
+
+  // Add spotlight on egg
+  const spotLight = new THREE.SpotLight(0xaaffee, 2, 10, Math.PI / 6, 0.5);
+  spotLight.position.set(0, 5, 0);
+  spotLight.target = eggMesh;
+  scene.add(spotLight);
+
+  // Crack particles
+  const crackParticles = [];
+  
   let progress = 0;
-  const duration = 2.0;
+  const duration = 2.5; // Slightly longer for more drama
   const clock = new THREE.Clock();
 
   function animateEgg() {
     const delta = clock.getDelta();
     progress += delta / duration;
+
     if (progress >= 1) {
+      // Morph complete - create snake
       world.remove(eggMesh);
-      const snakeGeo = new THREE.CylinderGeometry(0.2, 0.2, 1, 16);
-      const snakeMat = new THREE.MeshStandardMaterial({ color: 0x88ffcc, metalness: 0.6, roughness: 0.4 });
+      world.remove(glowMesh);
+      scene.remove(spotLight);
+      
+      // Clean up crack particles
+      crackParticles.forEach(p => {
+        world.remove(p);
+        p.geometry.dispose();
+        p.material.dispose();
+      });
+
+      // Create enhanced snake head
+      const snakeGeo = new THREE.CapsuleGeometry(0.2, 0.6, 8, 16);
+      const snakeMat = new THREE.MeshStandardMaterial({
+        color: 0x88ffcc,
+        metalness: 0.6,
+        roughness: 0.3,
+        emissive: 0x44aa88,
+        emissiveIntensity: 0.3
+      });
       const snakeMesh = new THREE.Mesh(snakeGeo, snakeMat);
       snakeMesh.rotation.x = Math.PI / 2;
       snakeMesh.position.copy(eggMesh.position);
+      snakeMesh.castShadow = true;
       world.add(snakeMesh);
 
       callback(snakeMesh);
       return;
     }
-    const scaleY = 1.3 - 0.8 * progress;
-    eggMesh.scale.set(1, scaleY, 1);
+
+    // Wobble effect intensifies near the end
+    const wobbleIntensity = Math.pow(progress, 2) * 0.3;
+    const wobbleX = Math.sin(progress * 20) * wobbleIntensity;
+    const wobbleZ = Math.cos(progress * 15) * wobbleIntensity;
+    eggMesh.rotation.set(wobbleX, 0, wobbleZ);
+    glowMesh.rotation.copy(eggMesh.rotation);
+
+    // Pulse glow
+    const pulse = 0.2 + Math.sin(progress * 10) * 0.1;
+    glowMat.opacity = pulse;
+    eggMat.emissiveIntensity = 0.3 + Math.sin(progress * 8) * 0.2;
+
+    // Vertical squash/stretch as it "hatches"
+    const squash = 1.4 - (progress * 0.9); // 1.4 -> 0.5
+    const stretch = 1 + (progress * 0.2);   // 1.0 -> 1.2
+    eggMesh.scale.set(stretch, squash, stretch);
+    glowMesh.scale.set(stretch * 1.15, squash * 1.15, stretch * 1.15);
+
+    // Create crack particles as it breaks
+    if (progress > 0.6 && Math.random() < 0.15) {
+      const crackGeo = new THREE.SphereGeometry(0.05, 8, 8);
+      const crackMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.8
+      });
+      const crack = new THREE.Mesh(crackGeo, crackMat);
+      
+      // Random position around egg
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 0.4;
+      crack.position.set(
+        eggMesh.position.x + Math.cos(angle) * radius,
+        eggMesh.position.y + (Math.random() - 0.5) * 0.8,
+        eggMesh.position.z + Math.sin(angle) * radius
+      );
+      
+      crack.userData.velocity = new THREE.Vector3(
+        Math.cos(angle) * 0.02,
+        Math.random() * 0.02,
+        Math.sin(angle) * 0.02
+      );
+      
+      world.add(crack);
+      crackParticles.push(crack);
+    }
+
+    // Animate crack particles
+    crackParticles.forEach(p => {
+      p.position.add(p.userData.velocity);
+      p.userData.velocity.y -= 0.001; // Gravity
+      p.material.opacity *= 0.98; // Fade out
+      
+      if (p.material.opacity < 0.1) {
+        world.remove(p);
+        p.geometry.dispose();
+        p.material.dispose();
+      }
+    });
+
+    // Bounce effect
+    const bounce = Math.abs(Math.sin(progress * 15)) * 0.1 * (1 - progress);
+    eggMesh.position.y = 0.7 + bounce;
+    glowMesh.position.y = 0.7 + bounce;
+
     requestAnimationFrame(animateEgg);
   }
 
