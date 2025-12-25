@@ -1,11 +1,11 @@
 /// main.js
-/// Purpose: Application entry point and enhanced POV game loop
+/// Purpose: Game loop with dynamic 3D POV snake
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
 import { scene, camera, renderer, resizeRenderer, world, updateCamera, initWorldDragControls } from "./render/scene.js";
+import { state as snakeState, initSnake, updateSnake, growSnake, getHeadPosition, setDirection } from "./game/snake.js";
 import { state, resetGameState } from "./game/gameState.js";
-import { initSnake, updateSnake, growSnake, getHeadPosition, setDirection } from "./game/snake.js";
 import { buildRoom, clearRoom } from "./game/room.js";
 import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
 import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
@@ -45,7 +45,6 @@ const speedIncrement = 0.05;  // per second
 
 function animate(now) {
   requestAnimationFrame(animate);
-
   const delta = (now - lastTime) / 1000;
   lastTime = now;
 
@@ -55,7 +54,7 @@ function animate(now) {
   }
 
   // Progressive speed ramp
-  state.speed = baseSpeed + now / 1000 * speedIncrement;
+  snakeState.speed = baseSpeed + now / 1000 * speedIncrement;
 
   // Input → snake direction
   const dir = getDirectionVector();
@@ -63,10 +62,9 @@ function animate(now) {
 
   // Timed snake movement
   moveAccumulator += delta;
-  const stepTime = 1 / state.speed;
-
+  const stepTime = 1 / snakeState.speed;
   if (moveAccumulator >= stepTime) {
-    updateSnake();
+    updateSnake(delta);
     moveAccumulator = 0;
 
     const headPos = getHeadPosition();
@@ -92,9 +90,9 @@ function animate(now) {
     }
   }
 
-  // Camera follow POV
+  // Camera strictly follows snake head
   const snakeDir = getDirectionVector();
-  updateCamera(getHeadPosition(), snakeDir);
+  updateCamera(delta);
 
   renderer.render(scene, camera);
 }
