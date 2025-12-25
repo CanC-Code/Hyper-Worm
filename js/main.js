@@ -1,9 +1,10 @@
 /// main.js
-/// Purpose: Game loop with morphing egg → POV snake
+/// Purpose: Game loop with POV snake and procedural morphing egg
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
-import { scene, camera, renderer, resizeRenderer, world, updateCamera, initWorldDragControls } from "./render/scene.js";
+import { scene, camera, renderer, resizeRenderer, world, initWorldDragControls } from "./render/scene.js";
+import { updateCamera } from "./render/cameraController.js";
 import { state as snakeState, initSnake, updateSnake, growSnake, getHeadPosition, setDirection } from "./game/snake.js";
 import { state, resetGameState } from "./game/gameState.js";
 import { buildRoom, clearRoom } from "./game/room.js";
@@ -26,7 +27,7 @@ function resetGame() {
   buildRoom(world);
 
   // Spawn morphing egg intro
-  spawnMorphingEggSnake(new THREE.Vector3(0,0,0), () => {
+  spawnMorphingEggSnake(new THREE.Vector3(0, 0, 0), () => {
     initSnake(world);
     spawnFood(world);
     updateHUD();
