@@ -12,24 +12,24 @@ export function spawnFood(world, roomSize = 12) {
   if (foodMesh) world.remove(foodMesh);
   if (foodGlow) world.remove(foodGlow);
 
-  // Main food mesh
-  const geo = new THREE.IcosahedronGeometry(0.35, 1);
+  // Main food mesh - higher poly
+  const geo = new THREE.IcosahedronGeometry(0.4, 2); // More subdivisions
   const mat = new THREE.MeshStandardMaterial({
     color: 0xff3333,
-    roughness: 0.3,
-    metalness: 0.6,
+    roughness: 0.2,
+    metalness: 0.7,
     emissive: 0xff0000,
-    emissiveIntensity: 0.5
+    emissiveIntensity: 0.6
   });
   foodMesh = new THREE.Mesh(geo, mat);
   foodMesh.castShadow = true;
 
-  // Glow effect
-  const glowGeo = new THREE.IcosahedronGeometry(0.5, 1);
+  // Glow effect - larger and more prominent
+  const glowGeo = new THREE.IcosahedronGeometry(0.6, 2);
   const glowMat = new THREE.MeshBasicMaterial({
     color: 0xff6666,
     transparent: true,
-    opacity: 0.3,
+    opacity: 0.4,
     side: THREE.BackSide
   });
   foodGlow = new THREE.Mesh(glowGeo, glowMat);
