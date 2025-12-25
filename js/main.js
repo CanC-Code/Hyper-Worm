@@ -1,5 +1,5 @@
 /// main.js
-/// Full Hyper-Worm game loop with procedural snake
+/// Full Hyper-Worm game loop with egg intro and POV camera
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
@@ -8,7 +8,7 @@ import { state as snakeState, initSnakeFromMesh, updateSnake, growSnake, getHead
 import { state, resetGameState } from "./game/gameState.js";
 import { buildRoom, clearRoom } from "./game/room.js";
 import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
-import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
+import { spawnDoor, updateDoor, checkDoorEntry, clearDoor } from "./game/door.js";
 import { initTouchControls, getDirectionVector } from "./input/touchControls.js";
 import { spawnSmoothEggSnake } from "./game/eggSnakeMorph.js";
 
@@ -37,11 +37,10 @@ initTouchControls();
 
 /* ---------- START GAME WITH EGG MORPH ---------- */
 spawnSmoothEggSnake((snakeMesh) => {
-  // Position camera for intro
+  // Initial camera positioning above/back for intro
   camera.position.copy(snakeMesh.position.clone().add(new THREE.Vector3(0, 3, -5)));
   camera.lookAt(snakeMesh.position);
 
-  // Reset game state with generated snake
   resetGame(snakeMesh);
 
   let lastTime = performance.now();
@@ -65,7 +64,7 @@ spawnSmoothEggSnake((snakeMesh) => {
     const dir = getDirectionVector();
     setDirection({ x: dir.x, y: dir.y });
 
-    // Update snake (head + segments + mouth animation)
+    // Update snake
     updateSnake(delta);
 
     const headPos = getHeadPosition();
@@ -87,9 +86,13 @@ spawnSmoothEggSnake((snakeMesh) => {
       updateHUD();
     }
 
-    // Camera strictly follows snake head, slightly behind
+    // Door animation
+    updateDoor(delta);
+
+    // Camera follows snake POV (behind the head, look at mouth)
     updateCamera(delta);
 
+    // Render scene
     renderer.render(scene, camera);
   }
 
