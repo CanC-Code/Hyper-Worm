@@ -1,152 +1,109 @@
 /// snake.js
-/// Purpose: Procedural 3D GLTF snake with dynamic growth and mouth animation
+/// Purpose: Procedural snake with first-person POV
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { GLTFLoader } from "../../three/GLTFLoader.js";
 import { world } from "../render/scene.js";
 
+/* ---------- Snake State ---------- */
 export const state = {
-  headMesh: null,
-  mouthMesh: null,
+  head: null,
   segments: [],
-  headPosition: new THREE.Vector3(0, 0, 0),
-  velocity: new THREE.Vector3(0, 0, 1),
+  tail: null,
   speed: 2,
-  segmentLength: 1
+  direction: new THREE.Vector3(0, 0, 1), // normalized forward vector
+  segmentLength: 0.8,
 };
 
-const loader = new GLTFLoader();
-
-/**
- * Initialize the snake.
- * Loads the GLTF snake and sets up initial segments.
- */
-export function initSnake(scene) {
-  loader.load(
-    "/models/snake.gltf",
-    (gltf) => {
-      const snakeRoot = gltf.scene;
-      scene.add(snakeRoot);
-
-      // Access head and mouth nodes
-      state.headMesh = snakeRoot.getObjectByName("Head") || snakeRoot;
-      state.mouthMesh = snakeRoot.getObjectByName("Mouth") || null;
-
-      // Position head at starting location
-      state.headMesh.position.copy(state.headPosition);
-
-      // Initialize 2 body segments
-      for (let i = 0; i < 2; i++) {
-        addSegment(scene);
-      }
-
-      console.log("Snake initialized:", state.headMesh, state.mouthMesh);
-    },
-    undefined,
-    (err) => console.error("Error loading snake GLTF:", err)
+/* ---------- Initialize Snake ---------- */
+export function initSnake(worldRef) {
+  state.head = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.3, 0.5, 4, 8),
+    new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true })
   );
-}
+  state.head.position.set(0, 0, 0);
+  worldRef.add(state.head);
 
-/**
- * Update snake movement and segment positions each frame.
- * @param {number} delta - Time delta in seconds
- */
-export function updateSnake(delta) {
-  if (!state.headMesh) return;
-
-  // Move head forward
-  const moveDelta = state.velocity.clone().multiplyScalar(state.speed * delta);
-  state.headPosition.add(moveDelta);
-  state.headMesh.position.copy(state.headPosition);
-
-  // Rotate head to match velocity (free-turn)
-  const angle = Math.atan2(state.velocity.x, state.velocity.z);
-  state.headMesh.rotation.y = angle;
-
-  // Update body segments to follow the head
-  updateSegments();
-}
-
-/**
- * Smoothly updates all body segments to follow the snake head.
- */
-function updateSegments() {
-  let previousPos = state.headPosition.clone();
-  state.segments.forEach((seg) => {
-    const dir = previousPos.clone().sub(seg.position);
-    const dist = dir.length();
-    if (dist > state.segmentLength) {
-      dir.normalize();
-      seg.position.add(dir.multiplyScalar(dist - state.segmentLength));
-    }
-    previousPos = seg.position.clone();
-  });
-}
-
-/**
- * Add a new segment behind the last segment (or head) and animate growth.
- */
-export function addSegment(scene) {
-  if (!state.headMesh) return;
-
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshStandardMaterial({ color: 0x33ff33 });
-  const segment = new THREE.Mesh(geometry, material);
-
-  const last = state.segments[state.segments.length - 1];
-  segment.position.copy(last ? last.position : state.headPosition);
-  segment.scale.set(0.1, 0.1, 0.1); // start tiny for growth
-
-  scene.add(segment);
-  state.segments.push(segment);
-
-  // Animate segment growth
-  const growDuration = 0.25;
-  let elapsed = 0;
-  function animateGrow(delta) {
-    elapsed += delta;
-    const t = Math.min(elapsed / growDuration, 1);
-    segment.scale.setScalar(t);
-    if (t < 1) requestAnimationFrame((now) => animateGrow(0.016));
+  // Initial segments (3)
+  state.segments = [];
+  for (let i = 1; i <= 3; i++) {
+    const seg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.25, 0.25, state.segmentLength, 8),
+      new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true })
+    );
+    seg.rotation.x = Math.PI / 2;
+    seg.position.set(0, 0, -i * state.segmentLength);
+    worldRef.add(seg);
+    state.segments.push(seg);
   }
-  requestAnimationFrame((now) => animateGrow(0.016));
+
+  // Tail
+  state.tail = new THREE.Mesh(
+    new THREE.ConeGeometry(0.15, 0.5, 8),
+    new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true })
+  );
+  state.tail.rotation.x = Math.PI / 2;
+  state.tail.position.set(0, 0, -(state.segments.length + 1) * state.segmentLength);
+  worldRef.add(state.tail);
 }
 
-/**
- * Set the snake's turning direction based on a 2D input vector.
- * @param {{x:number, y:number}} vec2 - Direction vector on XZ plane
- */
-export function setDirection(vec2) {
-  const dir = new THREE.Vector3(vec2.x, 0, vec2.y).normalize();
-  state.velocity.lerp(dir, 0.15); // smooth turning
-}
-
-/**
- * Trigger snake growth and animate mouth when eating.
- */
-export function growSnake(scene) {
-  addSegment(scene);
-
-  if (state.mouthMesh) {
-    const duration = 150; // ms
-    const openAngle = -0.5; // radians
-    const closeAngle = 0;
-
-    // Open mouth
-    state.mouthMesh.rotation.x = openAngle;
-
-    // Close mouth after short delay
-    setTimeout(() => {
-      if (state.mouthMesh) state.mouthMesh.rotation.x = closeAngle;
-    }, duration);
+/* ---------- Set Direction ---------- */
+export function setDirection(dirVec) {
+  // dirVec: {x, y}, normalized input vector from touch / keys
+  const newDir = new THREE.Vector3(dirVec.x, 0, dirVec.y);
+  if (newDir.lengthSq() > 0) {
+    newDir.normalize();
+    state.direction.lerp(newDir, 0.2); // smooth turn
   }
 }
 
-/**
- * Get the current head position for collisions or game logic.
- * @returns {THREE.Vector3}
- */
+/* ---------- Get Head Position & Direction ---------- */
 export function getHeadPosition() {
-  return state.headPosition.clone();
+  return state.head.position.clone();
+}
+
+export function getHeadDirection() {
+  return state.direction.clone();
+}
+
+/* ---------- Update Snake Movement ---------- */
+export function updateSnake(delta) {
+  const moveDist = state.speed * delta;
+
+  // Move head
+  state.head.position.addScaledVector(state.direction, moveDist);
+
+  // Update segments smoothly
+  let prevPos = state.head.position.clone();
+  for (const seg of state.segments) {
+    const segToPrev = prevPos.clone().sub(seg.position);
+    if (segToPrev.length() > state.segmentLength) {
+      seg.position.add(segToPrev.setLength(segToPrev.length() - state.segmentLength));
+    }
+    prevPos = seg.position.clone();
+  }
+
+  // Tail follows last segment
+  const lastSeg = state.segments[state.segments.length - 1];
+  const tailToPrev = lastSeg.position.clone().sub(state.tail.position);
+  if (tailToPrev.length() > state.segmentLength) {
+    state.tail.position.add(tailToPrev.setLength(tailToPrev.length() - state.segmentLength));
+  }
+}
+
+/* ---------- Grow Snake ---------- */
+export function growSnake(worldRef) {
+  const lastSeg = state.segments[state.segments.length - 1];
+  const newSeg = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.25, 0.25, state.segmentLength, 8),
+    new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true })
+  );
+  newSeg.rotation.x = Math.PI / 2;
+  newSeg.position.copy(lastSeg.position).addScaledVector(state.direction, -state.segmentLength);
+  worldRef.add(newSeg);
+  state.segments.push(newSeg);
+
+  // Move tail further back
+  const tailOffset = state.tail.position.clone().sub(lastSeg.position).normalize().multiplyScalar(state.segmentLength);
+  state.tail.position.add(tailOffset);
 }
