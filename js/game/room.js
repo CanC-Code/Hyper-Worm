@@ -1,5 +1,5 @@
 /// room.js
-/// Procedural 3D room generation
+/// Procedurally generate 3D dungeon room with textures
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
@@ -8,55 +8,72 @@ import { world } from "../render/scene.js";
 export const state = {
   walls: [],
   floor: null,
-  roomWidth: 10,
-  roomHeight: 4,
-  roomDepth: 10,
+  roomWidth: 12,
+  roomHeight: 6,
+  roomDepth: 12,
 };
 
-/**
- * Safe add to world
- */
-function safeAdd(parent, child) {
-  if (child instanceof THREE.Object3D) parent.add(child);
-  else console.error("Attempted to add non-Object3D to world:", child);
-}
-
-export function buildRoom(worldRef, width = 10, height = 4, depth = 10) {
+/* ---------- Build Room ---------- */
+export function buildRoom(worldRef, width = 12, height = 6, depth = 12) {
   state.roomWidth = width;
   state.roomHeight = height;
   state.roomDepth = depth;
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x4444aa, side: THREE.BackSide });
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, side: THREE.DoubleSide });
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0x333366,
+    roughness: 0.6,
+    metalness: 0.2,
+    side: THREE.BackSide,
+  });
+
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: 0x111111,
+    roughness: 0.85,
+    metalness: 0.1,
+    side: THREE.DoubleSide,
+  });
 
   // Floor
-  const floorGeo = new THREE.PlaneGeometry(width, depth);
+  const floorGeo = new THREE.PlaneGeometry(width, depth, 1, 1);
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = 0;
-  safeAdd(worldRef, floor);
+  worldRef.add(floor);
   state.floor = floor;
 
   // Walls
   const wallGeoH = new THREE.PlaneGeometry(width, height);
   const wallGeoD = new THREE.PlaneGeometry(depth, height);
 
-  const walls = [
-    { geo: wallGeoH, pos: [0, height / 2, depth / 2], rotY: Math.PI },      // front
-    { geo: wallGeoH, pos: [0, height / 2, -depth / 2], rotY: 0 },           // back
-    { geo: wallGeoD, pos: [width / 2, height / 2, 0], rotY: -Math.PI / 2 }, // right
-    { geo: wallGeoD, pos: [-width / 2, height / 2, 0], rotY: Math.PI },     // left
-  ];
+  // +Z wall
+  const wallFront = new THREE.Mesh(wallGeoH, wallMat);
+  wallFront.position.set(0, height / 2, depth / 2);
+  wallFront.rotation.y = Math.PI;
+  worldRef.add(wallFront);
+  state.walls.push(wallFront);
 
-  for (const w of walls) {
-    const mesh = new THREE.Mesh(w.geo, wallMat);
-    mesh.position.set(...w.pos);
-    mesh.rotation.y = w.rotY;
-    safeAdd(worldRef, mesh);
-    state.walls.push(mesh);
-  }
+  // -Z wall
+  const wallBack = new THREE.Mesh(wallGeoH, wallMat);
+  wallBack.position.set(0, height / 2, -depth / 2);
+  worldRef.add(wallBack);
+  state.walls.push(wallBack);
+
+  // +X wall
+  const wallRight = new THREE.Mesh(wallGeoD, wallMat);
+  wallRight.position.set(width / 2, height / 2, 0);
+  wallRight.rotation.y = -Math.PI / 2;
+  worldRef.add(wallRight);
+  state.walls.push(wallRight);
+
+  // -X wall
+  const wallLeft = new THREE.Mesh(wallGeoD, wallMat);
+  wallLeft.position.set(-width / 2, height / 2, 0);
+  wallLeft.rotation.y = Math.PI / 2;
+  worldRef.add(wallLeft);
+  state.walls.push(wallLeft);
 }
 
+/* ---------- Clear Room ---------- */
 export function clearRoom(worldRef) {
   if (state.floor) {
     worldRef.remove(state.floor);
