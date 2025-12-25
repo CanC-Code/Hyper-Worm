@@ -1,75 +1,23 @@
 /// snake.js
-/// True 3D free-form snake with smooth steering and infinite growth
-/// Camera locked behind head
+/// Core snake logic, movement, growth, and mesh
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { world } from "../render/scene.js";
 
 export const state = {
   mesh: null,
   segments: [],
-  positions: [],
-  speed: 2,
   direction: new THREE.Vector3(0, 0, 1),
-  directionInput: new THREE.Vector2(0, 1),
-  segmentSpacing: 0.3,
+  speed: 2,
+  length: 1,
 };
 
-export function initSnakeFromMesh(mesh) {
-  state.mesh = mesh;
-  world.add(state.mesh);
-  state.segments = [];
-  state.positions = [mesh.position.clone()];
-}
-
-export function setDirection(dirVec) {
-  state.directionInput.copy(dirVec);
-}
-
-export function growSnake() {
-  const lastPos = state.positions[state.positions.length - 1].clone();
-  state.positions.push(lastPos);
-}
-
-export function updateSnake(delta) {
-  if (!state.mesh) return;
-
-  // Steering
-  const inputDir = new THREE.Vector3(state.directionInput.x, 0, state.directionInput.y);
-  if (inputDir.lengthSq() > 0) inputDir.normalize();
-  state.direction.lerp(inputDir, 0.1);
-
-  // Head moves forward
-  state.mesh.position.addScaledVector(state.direction, state.speed * delta);
-
-  // Add current head position
-  state.positions.unshift(state.mesh.position.clone());
-
-  // Update tail positions
-  for (let i = 0; i < state.positions.length - 1; i++) {
-    const cur = state.positions[i];
-    const next = state.positions[i + 1];
-    const dist = cur.distanceTo(next);
-    if (dist > state.segmentSpacing) {
-      const dir = new THREE.Vector3().subVectors(cur, next).normalize();
-      next.addScaledVector(dir, dist - state.segmentSpacing);
-    }
-  }
-
-  // Limit positions array
-  while (state.positions.length > 2000) state.positions.pop();
-
-  // Optional mouth animation
-  const posAttr = state.mesh.geometry.attributes.position;
-  if (posAttr) {
-    const openAmount = Math.sin(performance.now() * 0.005) * 0.05;
-    for (let i = 0; i < posAttr.count; i++) {
-      posAttr.setZ(i, posAttr.getZ(i) + openAmount);
-    }
-    posAttr.needsUpdate = true;
-    state.mesh.geometry.computeBoundingSphere();
-  }
+export function initSnakeFromMesh(headMesh) {
+  state.mesh = headMesh;
+  state.segments = [headMesh];
+  state.direction.set(0, 0, 1);
+  state.speed = 2;
+  state.length = 1;
 }
 
 export function getHeadPosition() {
@@ -77,5 +25,49 @@ export function getHeadPosition() {
 }
 
 export function getHeadDirection() {
-  return state.direction.clone();
+  return state.direction.clone().normalize();
+}
+
+export function setDirection(dir) {
+  // dir = {x, y} from touch input
+  if (!state.mesh) return;
+
+  const dirVec = new THREE.Vector3(dir.x, 0, dir.y);
+  if (dirVec.length() > 0.001) {
+    state.direction.lerp(dirVec.normalize(), 0.15);
+  }
+}
+
+export function updateSnake(delta) {
+  if (!state.mesh) return;
+
+  const moveDistance = state.speed * delta;
+  state.mesh.position.add(state.direction.clone().multiplyScalar(moveDistance));
+
+  // Simple segment following
+  for (let i = 1; i < state.segments.length; i++) {
+    const prev = state.segments[i - 1];
+    const seg = state.segments[i];
+    const target = prev.position.clone();
+    seg.position.lerp(target, 0.5);
+  }
+}
+
+export function growSnake() {
+  if (!state.mesh) return;
+
+  const lastSeg = state.segments[state.segments.length - 1];
+  const geo = new THREE.CylinderGeometry(0.2, 0.2, 1, 12);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x88ffcc,
+    metalness: 0.6,
+    roughness: 0.4,
+  });
+  const seg = new THREE.Mesh(geo, mat);
+  seg.rotation.x = Math.PI / 2;
+  seg.position.copy(lastSeg.position.clone().add(state.direction.clone().multiplyScalar(-1)));
+  state.segments.push(seg);
+
+  if (state.mesh.parent) state.mesh.parent.add(seg);
+  state.length++;
 }
