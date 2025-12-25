@@ -1,0 +1,56 @@
+{
+  "asset": { "version": "2.0" },
+  "scenes": [ { "nodes": [0] } ],
+  "nodes": [
+    {
+      "name": "Head",
+      "mesh": 0,
+      "translation": [0,0,0],
+      "children": [
+        {
+          "name": "Mouth",
+          "mesh": 1,
+          "translation": [0,-0.25,0.5]
+        }
+      ]
+    },
+    { "name": "Segment1", "mesh": 2, "translation": [0,0,-1] },
+    { "name": "Segment2", "mesh": 2, "translation": [0,0,-2] },
+    { "name": "Segment3", "mesh": 2, "translation": [0,0,-3] },
+    { "name": "Segment4", "mesh": 2, "translation": [0,0,-4] }
+  ],
+  "meshes": [
+    {
+      "name": "HeadMesh",
+      "primitives": [
+        { "attributes": { "POSITION": 0 }, "mode": 4 }
+      ]
+    },
+    {
+      "name": "MouthMesh",
+      "primitives": [
+        { "attributes": { "POSITION": 1 }, "mode": 4 }
+      ]
+    },
+    {
+      "name": "SegmentMesh",
+      "primitives": [
+        { "attributes": { "POSITION": 2 }, "mode": 4 }
+      ]
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "data:application/octet-stream;base64,AAAAAAABAAIAAAACAAIAAAAFAAAA",
+      "byteLength": 72
+    },
+    {
+      "uri": "data:application/octet-stream;base64,AAAAAAABAAIAAAACAAIAAAAFAAAA",
+      "byteLength": 72
+    },
+    {
+      "uri": "data:application/octet-stream;base64,AAAAAAABAAIAAAACAAIAAAAFAAAA",
+      "byteLength": 72
+    }
+  ]
+}
