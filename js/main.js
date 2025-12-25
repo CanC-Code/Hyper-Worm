@@ -2,8 +2,8 @@
 // Hyper Snake – stable segmented growth main loop
 // CCVO / CanC-Code
 
-import * as THREE from "./three/three.module.js";
-import { Snake } from "./snake.js";
+import * as THREE from "../three/three.module.js";
+import { Snake } from "./game/snake.js";
 import { initTouchControls, getTurnInput, getTurnSpeed } from "./touchControls.js";
 
 // --------------------------------------------------
