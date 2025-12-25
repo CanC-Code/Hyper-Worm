@@ -4,7 +4,7 @@
 
 import * as THREE from "../three/three.module.js";
 import { Snake } from "./game/snake.js";
-import { initTouchControls, getTurnInput, getTurnSpeed } from "./touchControls.js";
+import { initTouchControls, getTurnInput, getTurnSpeed } from "./input/touchControls.js";
 
 // --------------------------------------------------
 // Scene setup
