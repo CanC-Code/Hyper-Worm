@@ -1,5 +1,5 @@
 /// snake.js
-/// Purpose: Procedural snake with first-person POV
+/// Purpose: Procedural snake with POV and safe infinite growth
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
@@ -24,17 +24,10 @@ export function initSnake(worldRef) {
   state.head.position.set(0, 0, 0);
   worldRef.add(state.head);
 
-  // Initial segments (3)
   state.segments = [];
+  // Start with 3 segments
   for (let i = 1; i <= 3; i++) {
-    const seg = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.25, 0.25, state.segmentLength, 8),
-      new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true })
-    );
-    seg.rotation.x = Math.PI / 2;
-    seg.position.set(0, 0, -i * state.segmentLength);
-    worldRef.add(seg);
-    state.segments.push(seg);
+    addSegment(worldRef, i);
   }
 
   // Tail
@@ -47,17 +40,30 @@ export function initSnake(worldRef) {
   worldRef.add(state.tail);
 }
 
+/* ---------- Add Segment ---------- */
+export function addSegment(worldRef, indexOffset = 0) {
+  const segGeo = new THREE.CylinderGeometry(0.25, 0.25, state.segmentLength, 8);
+  const segMat = new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true });
+  const seg = new THREE.Mesh(segGeo, segMat);
+  seg.rotation.x = Math.PI / 2;
+
+  const zPos = -(state.segments.length + 1 + indexOffset) * state.segmentLength;
+  seg.position.set(0, 0, zPos);
+
+  worldRef.add(seg);
+  state.segments.push(seg);
+}
+
 /* ---------- Set Direction ---------- */
 export function setDirection(dirVec) {
-  // dirVec: {x, y}, normalized input vector from touch / keys
   const newDir = new THREE.Vector3(dirVec.x, 0, dirVec.y);
   if (newDir.lengthSq() > 0) {
     newDir.normalize();
-    state.direction.lerp(newDir, 0.2); // smooth turn
+    state.direction.lerp(newDir, 0.2); // smooth turning
   }
 }
 
-/* ---------- Get Head Position & Direction ---------- */
+/* ---------- Get Head Info ---------- */
 export function getHeadPosition() {
   return state.head.position.clone();
 }
@@ -66,14 +72,14 @@ export function getHeadDirection() {
   return state.direction.clone();
 }
 
-/* ---------- Update Snake Movement ---------- */
+/* ---------- Update Snake ---------- */
 export function updateSnake(delta) {
   const moveDist = state.speed * delta;
 
   // Move head
   state.head.position.addScaledVector(state.direction, moveDist);
 
-  // Update segments smoothly
+  // Smoothly move segments
   let prevPos = state.head.position.clone();
   for (const seg of state.segments) {
     const segToPrev = prevPos.clone().sub(seg.position);
@@ -91,19 +97,13 @@ export function updateSnake(delta) {
   }
 }
 
-/* ---------- Grow Snake ---------- */
+/* ---------- Grow Snake Safely ---------- */
 export function growSnake(worldRef) {
-  const lastSeg = state.segments[state.segments.length - 1];
-  const newSeg = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.25, 0.25, state.segmentLength, 8),
-    new THREE.MeshStandardMaterial({ color: 0x33aa33, flatShading: true })
-  );
-  newSeg.rotation.x = Math.PI / 2;
-  newSeg.position.copy(lastSeg.position).addScaledVector(state.direction, -state.segmentLength);
-  worldRef.add(newSeg);
-  state.segments.push(newSeg);
+  // Add new segment at tail
+  addSegment(worldRef);
 
-  // Move tail further back
+  // Move tail backward to maintain spacing
+  const lastSeg = state.segments[state.segments.length - 1];
   const tailOffset = state.tail.position.clone().sub(lastSeg.position).normalize().multiplyScalar(state.segmentLength);
   state.tail.position.add(tailOffset);
 }
