@@ -12,7 +12,9 @@ export const state = {
   speed: 3,
   direction: new THREE.Vector3(0, 0, 1),
   length: 3,
-  trailMeshes: []
+  trailMeshes: [],
+  speedBoost: 1.0, // Speed multiplier
+  boosting: false
 };
 
 export function initSnakeFromMesh(mesh) {
@@ -50,7 +52,7 @@ export function updateSnake(delta) {
   state.direction.applyQuaternion(rotation).normalize();
 
   // Move head forward
-  const moveVec = state.direction.clone().multiplyScalar(state.speed * delta);
+  const moveVec = state.direction.clone().multiplyScalar(state.speed * state.speedBoost * delta);
   state.mesh.position.add(moveVec);
 
   // Update head rotation to face movement direction
@@ -58,6 +60,11 @@ export function updateSnake(delta) {
     new THREE.Vector3(0, 0, 1),
     state.direction
   );
+  
+  // Create speed trail particles when boosting
+  if (state.boosting && Math.random() < 0.3) {
+    createSpeedParticle(state.mesh.position);
+  }
 
   // Update path for trail
   state.path.unshift(state.mesh.position.clone());
@@ -132,4 +139,46 @@ export function checkSelfCollision() {
   }
   
   return false;
+}
+
+// Speed particles effect
+const speedParticles = [];
+
+function createSpeedParticle(position) {
+  const geo = new THREE.SphereGeometry(0.08, 8, 8);
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0x88ffcc,
+    transparent: true,
+    opacity: 0.8
+  });
+  const particle = new THREE.Mesh(geo, mat);
+  particle.position.copy(position);
+  particle.userData.life = 1.0;
+  world.add(particle);
+  speedParticles.push(particle);
+  
+  // Cleanup old particles
+  if (speedParticles.length > 50) {
+    const old = speedParticles.shift();
+    world.remove(old);
+    old.geometry.dispose();
+    old.material.dispose();
+  }
+}
+
+// Update speed particles
+export function updateSpeedParticles() {
+  for (let i = speedParticles.length - 1; i >= 0; i--) {
+    const p = speedParticles[i];
+    p.userData.life -= 0.05;
+    p.material.opacity = p.userData.life;
+    p.scale.multiplyScalar(0.95);
+    
+    if (p.userData.life <= 0) {
+      world.remove(p);
+      p.geometry.dispose();
+      p.material.dispose();
+      speedParticles.splice(i, 1);
+    }
+  }
 }
