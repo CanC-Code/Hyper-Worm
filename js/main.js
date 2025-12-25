@@ -1,10 +1,19 @@
 /// main.js
-/// Full snake game loop with egg intro - ENHANCED VERSION
+/// Full snake game loop with egg intro — CONTINUOUS BODY VERSION
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
-import { scene, camera, renderer, world, resizeRenderer, updateCamera } from "./render/scene.js";
-import { state as snakeState, initSnakeFromMesh, updateSnake, growSnake, getHeadPosition, getHeadDirection, checkSelfCollision, updateSpeedParticles } from "./game/snake.js";
+
+import {
+  scene,
+  camera,
+  renderer,
+  world,
+  resizeRenderer,
+  updateCamera
+} from "./render/scene.js";
+
+import { Snake } from "./game/snake.js";
 import { state, resetGameState } from "./game/gameState.js";
 import { buildRoom, clearRoom, checkWallCollision } from "./game/room.js";
 import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
@@ -18,17 +27,21 @@ let gameActive = false;
 let gameOverFlag = false;
 let animationId = null;
 
+/* ---------- SNAKE MOTION STATE ---------- */
+const headPosition = new THREE.Vector3(0, 0.5, 0);
+const headDirection = new THREE.Vector3(0, 0, -1);
+
 /* ---------- HUD ---------- */
 const hud = document.getElementById("hud");
 
-function updateHUD() {
+function updateHUD(snake) {
   const nextDoor = state.bitesPerRoom - (state.bites % state.bitesPerRoom);
   hud.innerHTML = `
     <div style="display: flex; gap: 20px; align-items: center;">
-      <span>🐍 Length: ${snakeState.length}</span>
+      <span>🐍 Length: ${snake.currentLength.toFixed(1)}</span>
       <span>🍎 Bites: ${state.bites}</span>
       <span>🚪 Room: ${state.room}</span>
-      <span>⏭️ Next Door: ${state.doorOpen ? 'OPEN!' : nextDoor}</span>
+      <span>⏭️ Next Door: ${state.doorOpen ? "OPEN!" : nextDoor}</span>
     </div>
   `;
 }
@@ -39,72 +52,22 @@ function showGameOver() {
       <h2 style="color: #ff4444; margin: 0 0 10px 0; font-size: 24px;">GAME OVER</h2>
       <p style="margin: 5px 0;">Final Score: ${state.bites}</p>
       <p style="margin: 5px 0;">Rooms Cleared: ${state.room - 1}</p>
-      <p style="margin: 15px 0 5px 0; font-size: 12px; opacity: 0.8;">Tap/Click to Restart</p>
+      <p style="margin: 15px 0 5px 0; font-size: 12px; opacity: 0.8;">Tap / Click to Restart</p>
     </div>
   `;
 }
 
-/* ---------- PARTICLE EFFECTS ---------- */
-function createFoodParticles(position) {
-  const particleCount = 15;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const velocities = [];
-  
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3] = position.x;
-    positions[i * 3 + 1] = position.y;
-    positions[i * 3 + 2] = position.z;
-    
-    velocities.push(new THREE.Vector3(
-      (Math.random() - 0.5) * 0.1,
-      Math.random() * 0.15,
-      (Math.random() - 0.5) * 0.1
-    ));
-  }
-  
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const material = new THREE.PointsMaterial({
-    color: 0xff4444,
-    size: 0.15,
-    transparent: true,
-    opacity: 1
-  });
-  
-  const particles = new THREE.Points(geometry, material);
-  world.add(particles);
-  
-  let life = 1.0;
-  const animateParticles = () => {
-    life -= 0.03;
-    if (life <= 0) {
-      world.remove(particles);
-      geometry.dispose();
-      material.dispose();
-      return;
-    }
-    
-    const positions = particles.geometry.attributes.position.array;
-    for (let i = 0; i < particleCount; i++) {
-      positions[i * 3] += velocities[i].x;
-      positions[i * 3 + 1] += velocities[i].y - 0.005; // gravity
-      positions[i * 3 + 2] += velocities[i].z;
-    }
-    particles.geometry.attributes.position.needsUpdate = true;
-    material.opacity = life;
-    
-    requestAnimationFrame(animateParticles);
-  };
-  
-  animateParticles();
-}
-
+/* ---------- SCREEN FX ---------- */
 function flashScreen(color = 0xff0000) {
-  const flash = document.createElement('div');
+  const flash = document.createElement("div");
   flash.style.cssText = `
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: ${color === 0xff0000 ? 'rgba(255,0,0,0.3)' : 'rgba(0,255,136,0.2)'};
+    inset: 0;
+    background: ${
+      color === 0xff0000
+        ? "rgba(255,0,0,0.3)"
+        : "rgba(0,255,136,0.2)"
+    };
     pointer-events: none;
     z-index: 9;
     animation: fadeOut 0.3s ease-out;
@@ -113,8 +76,7 @@ function flashScreen(color = 0xff0000) {
   setTimeout(() => flash.remove(), 300);
 }
 
-// Add CSS animation
-const style = document.createElement('style');
+const style = document.createElement("style");
 style.textContent = `
   @keyframes fadeOut {
     from { opacity: 1; }
@@ -123,70 +85,71 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-/* ---------- GAME LOGIC ---------- */
+/* ---------- COLLISION ---------- */
+function checkSelfCollision(snake, headPos) {
+  const minIndex = 6;
+  const threshold = 0.35;
+
+  for (let i = minIndex; i < snake.spine.length; i++) {
+    if (headPos.distanceTo(snake.spine[i]) < threshold) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/* ---------- GAME FLOW ---------- */
 function gameOver() {
   if (gameOverFlag) return;
+
   gameOverFlag = true;
   gameActive = false;
-  
   flashScreen(0xff0000);
-  
-  // Shake camera
+
   const originalPos = camera.position.clone();
-  let shakeTime = 0;
-  const shakeInterval = setInterval(() => {
-    shakeTime += 50;
-    if (shakeTime > 500) {
-      clearInterval(shakeInterval);
-      return;
-    }
+  let t = 0;
+
+  const shake = setInterval(() => {
+    t += 50;
     camera.position.x = originalPos.x + (Math.random() - 0.5) * 0.3;
     camera.position.y = originalPos.y + (Math.random() - 0.5) * 0.3;
+    if (t > 500) clearInterval(shake);
   }, 50);
-  
+
   setTimeout(() => {
     if (animationId) cancelAnimationFrame(animationId);
     showGameOver();
-    
-    // Setup restart
-    const restartGame = () => {
-      document.removeEventListener('click', restartGame);
-      document.removeEventListener('touchstart', restartGame);
+
+    const restart = () => {
+      document.removeEventListener("click", restart);
+      document.removeEventListener("touchstart", restart);
       window.location.reload();
     };
-    
-    document.addEventListener('click', restartGame);
-    document.addEventListener('touchstart', restartGame);
+
+    document.addEventListener("click", restart);
+    document.addEventListener("touchstart", restart);
   }, 600);
 }
 
-function progressToNextRoom() {
+function progressToNextRoom(snake) {
   flashScreen(0x00ff88);
-  
-  // Clear current room
+
   clearRoom(world);
   clearDoor(world);
-  
-  // Increment room and reset door state
+
   state.room++;
   state.doorOpen = false;
-  state.roomSize = Math.min(12 + state.room, 25); // Gradually increase room size
-  
-  // Rebuild room
+  state.roomSize = Math.min(12 + state.room, 25);
+
   buildRoom(world, state.roomSize);
-  
-  // Reposition snake to center
-  snakeState.mesh.position.set(0, 0.5, 0);
-  snakeState.path = [];
-  for (let i = 0; i < snakeState.length; i++) {
-    snakeState.path.push(snakeState.mesh.position.clone().add(new THREE.Vector3(0, 0, -i * 0.1)));
-  }
-  
-  // Spawn new food
+
+  headPosition.set(0, 0.5, 0);
+  snake.reset(headPosition);
+
   removeFood(world);
   spawnFood(world, state.roomSize);
-  
-  updateHUD();
+
+  updateHUD(snake);
 }
 
 /* ---------- INITIAL SETUP ---------- */
@@ -194,82 +157,94 @@ document.body.appendChild(renderer.domElement);
 window.addEventListener("resize", resizeRenderer);
 initTouchControls();
 initMinimap();
-hideMinimap(); // Hide during intro
+hideMinimap();
 
 /* ---------- START GAME ---------- */
-spawnSmoothEggSnake((snakeMesh) => {
-  showMinimap(); // Show minimap after hatching
-  
-  // Show control hints
-  const hint = document.createElement('div');
-  hint.className = 'control-hint';
-  hint.textContent = '🎮 Touch/Click & Drag to Steer • WASD/Arrows';
+spawnSmoothEggSnake((eggMesh) => {
+  showMinimap();
+
+  const hint = document.createElement("div");
+  hint.className = "control-hint";
+  hint.textContent = "🎮 Touch / Drag • WASD / Arrows";
   document.body.appendChild(hint);
   setTimeout(() => hint.remove(), 7000);
-  
-  initSnakeFromMesh(snakeMesh);
+
+  const snake = new Snake(world);
+  headPosition.copy(eggMesh.position);
+  snake.reset(headPosition);
+  world.remove(eggMesh);
+
   buildRoom(world, state.roomSize);
-  
-  let lastTime = performance.now();
+  spawnFood(world, state.roomSize);
+  updateHUD(snake);
+
   const BASE_SPEED = 3;
   const SPEED_PER_ROOM = 0.3;
-  
+
+  let lastTime = performance.now();
   gameActive = true;
   gameOverFlag = false;
 
   function animate(now) {
     if (!gameActive) return;
-    
     animationId = requestAnimationFrame(animate);
-    const delta = Math.min((now - lastTime) / 1000, 0.1); // Cap delta to prevent large jumps
+
+    const delta = Math.min((now - lastTime) / 1000, 0.1);
     lastTime = now;
 
-    // Progressive speed increase per room
-    snakeState.speed = BASE_SPEED + (state.room - 1) * SPEED_PER_ROOM;
-    
-    updateSnake(delta);
-    updateSpeedParticles(); // Update trail particles
-    const headPos = getHeadPosition();
+    const speed =
+      BASE_SPEED + (state.room - 1) * SPEED_PER_ROOM;
 
-    // Check collisions
-    if (checkWallCollision(headPos, state.roomSize) || checkSelfCollision()) {
+    // Move head (direction updated by input system)
+    headPosition.addScaledVector(headDirection, speed * delta);
+
+    // Update snake geometry
+    snake.update(headPosition);
+
+    // Collisions
+    if (
+      checkWallCollision(headPosition, state.roomSize) ||
+      checkSelfCollision(snake, headPosition)
+    ) {
       gameOver();
       return;
     }
 
-    // Check food collision
-    if (checkFoodCollision(headPos)) {
-      const foodPos = headPos.clone();
-      createFoodParticles(foodPos);
-      
-      growSnake();
+    // Food
+    if (checkFoodCollision(headPosition)) {
+      state.bites++;
+      snake.grow();
       removeFood(world);
       spawnFood(world, state.roomSize);
-      updateHUD();
-      
-      // Check if door should open
+      updateHUD(snake);
+
       if (state.bites % state.bitesPerRoom === 0) {
         state.doorOpen = true;
         spawnDoor(world, state.roomSize);
       }
     }
 
-    // Check door entry
-    if (state.doorOpen && checkDoorEntry(headPos, state.roomSize)) {
-      progressToNextRoom();
+    // Door
+    if (state.doorOpen && checkDoorEntry(headPosition, state.roomSize)) {
+      progressToNextRoom(snake);
     }
 
-    updateCamera(snakeState.mesh, getHeadDirection());
-    
-    // Update minimap
+    updateCamera(snake.mesh, headDirection);
+
     const foodPos = checkFoodCollision.__foodPosition || null;
-    const doorPos = state.doorOpen ? { x: 0, z: state.roomSize / 2 - 1 } : null;
-    updateMinimap(headPos, foodPos, doorPos, state.roomSize);
-    
+    const doorPos = state.doorOpen
+      ? { x: 0, z: state.roomSize / 2 - 1 }
+      : null;
+
+    updateMinimap(
+      headPosition,
+      foodPos,
+      doorPos,
+      state.roomSize
+    );
+
     renderer.render(scene, camera);
   }
 
-  spawnFood(world, state.roomSize);
-  updateHUD();
   animate(lastTime);
 });
