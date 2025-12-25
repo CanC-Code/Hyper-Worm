@@ -11,6 +11,7 @@ import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
 import { initTouchControls } from "./input/touchControls.js";
 import { spawnSmoothEggSnake } from "./game/eggSnakeMorph.js";
 import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
+import { initMinimap, updateMinimap, hideMinimap, showMinimap } from "./game/minimap.js";
 
 /* ---------- GAME STATE ---------- */
 let gameActive = false;
@@ -192,9 +193,12 @@ function progressToNextRoom() {
 document.body.appendChild(renderer.domElement);
 window.addEventListener("resize", resizeRenderer);
 initTouchControls();
+initMinimap();
+hideMinimap(); // Hide during intro
 
 /* ---------- START GAME ---------- */
 spawnSmoothEggSnake((snakeMesh) => {
+  showMinimap(); // Show minimap after hatching
   initSnakeFromMesh(snakeMesh);
   buildRoom(world, state.roomSize);
   
@@ -247,6 +251,12 @@ spawnSmoothEggSnake((snakeMesh) => {
     }
 
     updateCamera(snakeState.mesh, getHeadDirection());
+    
+    // Update minimap
+    const foodPos = checkFoodCollision.__foodPosition || null;
+    const doorPos = state.doorOpen ? { x: 0, z: state.roomSize / 2 - 1 } : null;
+    updateMinimap(headPos, foodPos, doorPos, state.roomSize);
+    
     renderer.render(scene, camera);
   }
 
