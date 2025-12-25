@@ -1,40 +1,61 @@
 // snake.js
-// Purpose: Continuous segmented snake body using a tapered TubeGeometry
-// Author: CCVO + assistant
-// Drop-in replacement for sphere/segment based snakes
+// Continuous segmented snake body using tapered TubeGeometry
+// CCVO + assistant — FINALIZED ARCHITECTURE
 
 import * as THREE from "./three/three.module.js";
 
 export class Snake {
-  constructor(scene) {
-    this.scene = scene;
+  constructor({
+    segmentLength = 0.5,
+    initialLength = 2.2,
+    maxLength = 30,
+    radius = 0.28,
+    tailRadius = 0.10,
+    radialSegments = 12,
+    tubularSegments = 72,
+    growSpeed = 4.0
+  } = {}) {
 
-    // --- Physical parameters ---
-    this.currentLength = 2.2;     // starting length (world units)
-    this.maxLength = 30.0;
-    this.growRate = 0.8;
+    // ---------------------------------
+    // Public root
+    // ---------------------------------
+    this.object3D = new THREE.Group();
 
-    this.bodyRadius = 0.28;
-    this.tailRadius = 0.10;
+    // ---------------------------------
+    // Length control
+    // ---------------------------------
+    this.currentLength = initialLength;
+    this.targetLength = initialLength;
+    this.maxLength = maxLength;
+    this.growSpeed = growSpeed;
 
-    // --- Spine ---
+    // ---------------------------------
+    // Geometry params
+    // ---------------------------------
+    this.bodyRadius = radius;
+    this.tailRadius = tailRadius;
+    this.radialSegments = radialSegments;
+    this.tubularSegments = tubularSegments;
+
+    // ---------------------------------
+    // Spine
+    // ---------------------------------
     this.spine = [];
-    this.minPointDistance = 0.04; // controls smoothness vs performance
+    this.minPointDistance = 0.04;
 
-    // --- Mesh ---
+    // ---------------------------------
+    // Mesh
+    // ---------------------------------
     this.mesh = null;
-    this.radialSegments = 12;
-    this.tubularSegments = 72;
 
     this._initMesh();
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Initialization                                                   */
-  /* ---------------------------------------------------------------- */
+  /* ============================================================= */
+  /* Initialization                                                */
+  /* ============================================================= */
 
   _initMesh() {
-    // Temporary straight curve to initialize geometry
     const p0 = new THREE.Vector3(0, 0, 0);
     const p1 = new THREE.Vector3(0, 0, -0.1);
     this.spine.push(p0, p1);
@@ -59,61 +80,77 @@ export class Snake {
 
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.castShadow = true;
-    this.mesh.receiveShadow = false;
 
-    this.scene.add(this.mesh);
+    this.object3D.add(this.mesh);
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Public API                                                       */
-  /* ---------------------------------------------------------------- */
+  /* ============================================================= */
+  /* Public API                                                    */
+  /* ============================================================= */
 
   /**
-   * Call once per frame AFTER head movement
-   * @param {THREE.Vector3} headPosition
+   * Smoothly grow toward a length (used by egg intro + gameplay)
    */
-  update(headPosition) {
-    this._updateSpine(headPosition);
-    this._rebuildGeometry();
-  }
-
-  /**
-   * Call when food is eaten
-   */
-  grow() {
-    this.currentLength = Math.min(
-      this.currentLength + this.growRate,
+  setTargetLength(length) {
+    this.targetLength = THREE.MathUtils.clamp(
+      length,
+      0.5,
       this.maxLength
     );
   }
 
   /**
-   * Optional: reset on death / room transition
+   * Discrete growth (food pickup)
    */
+  grow(amount = 0.8) {
+    this.setTargetLength(this.targetLength + amount);
+  }
+
+  /**
+   * Update AFTER head transform moves
+   */
+  update(headWorldPosition, delta) {
+    this._updateLength(delta);
+    this._updateSpine(headWorldPosition);
+    this._rebuildGeometry();
+  }
+
   reset(position) {
     this.spine.length = 0;
     this.spine.push(
       position.clone(),
       position.clone().add(new THREE.Vector3(0, 0, -0.1))
     );
-    this.currentLength = 2.2;
+    this.currentLength = this.targetLength;
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Spine logic                                                      */
-  /* ---------------------------------------------------------------- */
+  /* ============================================================= */
+  /* Length logic                                                  */
+  /* ============================================================= */
+
+  _updateLength(delta) {
+    if (this.currentLength === this.targetLength) return;
+
+    this.currentLength = THREE.MathUtils.damp(
+      this.currentLength,
+      this.targetLength,
+      this.growSpeed,
+      delta
+    );
+  }
+
+  /* ============================================================= */
+  /* Spine logic                                                   */
+  /* ============================================================= */
 
   _updateSpine(headPos) {
     const last = this.spine[0];
-
-    // Prevent oversampling
     if (last && last.distanceToSquared(headPos) < this.minPointDistance ** 2) {
       return;
     }
 
     this.spine.unshift(headPos.clone());
 
-    // Trim spine to physical length
     let accumulated = 0;
     for (let i = 0; i < this.spine.length - 1; i++) {
       accumulated += this.spine[i].distanceTo(this.spine[i + 1]);
@@ -124,9 +161,9 @@ export class Snake {
     }
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Geometry                                                         */
-  /* ---------------------------------------------------------------- */
+  /* ============================================================= */
+  /* Geometry                                                     */
+  /* ============================================================= */
 
   _rebuildGeometry() {
     if (this.spine.length < 2) return;
@@ -158,27 +195,20 @@ export class Snake {
     const count = pos.count;
 
     for (let i = 0; i < count; i++) {
-      // t = 0 head, 1 tail
       const t = i / (count - 1);
-
-      // Smooth exponential taper (avoids pinching)
       const radius = THREE.MathUtils.lerp(
         this.bodyRadius,
         this.tailRadius,
         t * t
       );
 
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      const z = pos.getZ(i);
-
       const scale = radius / this.bodyRadius;
 
       pos.setXYZ(
         i,
-        x * scale,
-        y * scale,
-        z
+        pos.getX(i) * scale,
+        pos.getY(i) * scale,
+        pos.getZ(i)
       );
     }
 
