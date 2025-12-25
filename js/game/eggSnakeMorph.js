@@ -3,11 +3,10 @@
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { world, scene } from "../render/scene.js";
+import { world, scene, camera } from "../render/scene.js";
 
 export function spawnSmoothEggSnake(callback) {
   // Position camera for cinematic intro
-  const { camera } = await import("../render/scene.js");
   camera.position.set(3, 2, 3);
   camera.lookAt(0, 0.7, 0);
 
@@ -34,7 +33,7 @@ export function spawnSmoothEggSnake(callback) {
   world.add(eggMesh);
 
   // Add outer glow
-  const glowGeo = new THREE.SphereGeometry(0.65, 64, 64); // High poly
+  const glowGeo = new THREE.SphereGeometry(0.65, 32, 32);
   glowGeo.scale(1, 1.4, 1);
   const glowMat = new THREE.MeshBasicMaterial({
     color: 0xaaffee,
@@ -76,26 +75,20 @@ export function spawnSmoothEggSnake(callback) {
         p.material.dispose();
       });
 
-      // Create enhanced high-poly snake head
-      const snakeGeo = new THREE.CapsuleGeometry(0.25, 0.8, 16, 32); // Higher poly
+      // Create enhanced snake head
+      const snakeGeo = new THREE.CapsuleGeometry(0.2, 0.6, 8, 16);
       const snakeMat = new THREE.MeshStandardMaterial({
         color: 0x88ffcc,
-        metalness: 0.7,
-        roughness: 0.25,
+        metalness: 0.6,
+        roughness: 0.3,
         emissive: 0x44aa88,
-        emissiveIntensity: 0.4
+        emissiveIntensity: 0.3
       });
       const snakeMesh = new THREE.Mesh(snakeGeo, snakeMat);
       snakeMesh.rotation.x = Math.PI / 2;
       snakeMesh.position.copy(eggMesh.position);
       snakeMesh.castShadow = true;
       world.add(snakeMesh);
-
-      // Fade HUD back in
-      if (hud) {
-        hud.style.transition = "opacity 1s ease";
-        hud.style.opacity = "1";
-      }
 
       callback(snakeMesh);
       return;
