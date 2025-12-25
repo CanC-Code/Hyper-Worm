@@ -91,7 +91,6 @@ function animate(now) {
   }
 
   // Camera strictly follows snake head
-  const snakeDir = getDirectionVector();
   updateCamera(delta);
 
   renderer.render(scene, camera);
