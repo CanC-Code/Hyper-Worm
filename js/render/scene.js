@@ -80,39 +80,35 @@ export function resizeRenderer() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-/* ---------- ENHANCED CAMERA FOLLOW ---------- */
-let targetPosition = new THREE.Vector3();
-let targetLookAt = new THREE.Vector3();
+/* ---------- ENHANCED CAMERA FOLLOW - 3RD PERSON RUNNER ---------- */
+let currentCameraOffset = new THREE.Vector3();
+let currentLookTarget = new THREE.Vector3();
 
 export function updateCamera(snakeHead, forwardVec) {
-  const CAMERA_DISTANCE = 5.5; // Further back
-  const CAMERA_HEIGHT = 3.5; // Higher up for better view
-  const CAMERA_LERP = 0.06; // Even smoother following
-  const LOOK_AHEAD = 4.0; // Look further ahead
+  // Runner-style camera: fixed behind snake
+  const CAMERA_DISTANCE = 6.0; // Behind snake
+  const CAMERA_HEIGHT = 2.5; // Above snake
+  const CAMERA_LERP = 0.12; // Smooth but responsive
+  const LOOK_AHEAD_DISTANCE = 5.0; // Look where we're going
 
-  // Calculate desired camera position with side offset for better view
-  const offset = forwardVec.clone().multiplyScalar(-CAMERA_DISTANCE);
-  const rightVec = new THREE.Vector3().crossVectors(forwardVec, new THREE.Vector3(0, 1, 0));
-  const sideOffset = rightVec.multiplyScalar(0.5); // Slight side offset
+  // Calculate camera position directly behind snake
+  const backwardVec = forwardVec.clone().multiplyScalar(-CAMERA_DISTANCE);
+  const upVec = new THREE.Vector3(0, CAMERA_HEIGHT, 0);
   
-  targetPosition.copy(snakeHead.position)
-    .add(offset)
-    .add(sideOffset)
-    .add(new THREE.Vector3(0, CAMERA_HEIGHT, 0));
+  const targetCameraPos = snakeHead.position.clone()
+    .add(backwardVec)
+    .add(upVec);
 
-  // Smoothly interpolate camera position
-  camera.position.lerp(targetPosition, CAMERA_LERP);
+  // Smooth camera movement
+  currentCameraOffset.lerp(targetCameraPos, CAMERA_LERP);
+  camera.position.copy(currentCameraOffset);
 
-  // Look ahead of the snake with slight upward tilt
-  targetLookAt.copy(snakeHead.position)
-    .add(forwardVec.clone().multiplyScalar(LOOK_AHEAD))
-    .add(new THREE.Vector3(0, 1.0, 0)); // Look slightly above snake
+  // Look ahead in the direction snake is moving
+  const lookTarget = snakeHead.position.clone()
+    .add(forwardVec.clone().multiplyScalar(LOOK_AHEAD_DISTANCE))
+    .add(new THREE.Vector3(0, 0.5, 0)); // Slightly above ground
 
-  // Smooth look-at
-  const currentLookAt = new THREE.Vector3();
-  camera.getWorldDirection(currentLookAt);
-  currentLookAt.multiplyScalar(10).add(camera.position);
-  currentLookAt.lerp(targetLookAt, CAMERA_LERP * 1.5);
-  
-  camera.lookAt(currentLookAt);
+  // Smooth look target
+  currentLookTarget.lerp(lookTarget, CAMERA_LERP);
+  camera.lookAt(currentLookTarget);
 }
