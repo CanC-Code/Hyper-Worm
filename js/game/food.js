@@ -72,6 +72,7 @@ export function spawnFood(world, roomSize = 12) {
 
 export function checkFoodCollision(headPos) {
   if (!foodMesh) return false;
+  checkFoodCollision.__foodPosition = foodMesh.position; // Store for minimap
   const distance = headPos.distanceTo(foodMesh.position);
   if (distance < 0.6) {
     registerBite();
