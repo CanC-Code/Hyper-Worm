@@ -31,3 +31,5 @@ Governing Law:
 This license is governed by the laws of the jurisdiction of CCVO (CanC-Code).
 
 By playing or using Hyper Worm, you agree to these terms.
+
+Have fun!
