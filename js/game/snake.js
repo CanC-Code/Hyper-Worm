@@ -1,5 +1,5 @@
 /// snake.js
-/// True 3D free-form snake with smooth steering, infinite growth
+/// True 3D free-form snake with smooth steering and infinite growth
 /// Camera locked behind head
 /// Made by CCVO - CanC-Code
 
@@ -43,7 +43,7 @@ export function updateSnake(delta) {
   // Head moves forward
   state.mesh.position.addScaledVector(state.direction, state.speed * delta);
 
-  // Add current head position to positions array
+  // Add current head position
   state.positions.unshift(state.mesh.position.clone());
 
   // Update tail positions
@@ -57,17 +57,19 @@ export function updateSnake(delta) {
     }
   }
 
-  // Limit positions array for memory efficiency
+  // Limit positions array
   while (state.positions.length > 2000) state.positions.pop();
 
-  // Mouth animation
+  // Optional mouth animation
   const posAttr = state.mesh.geometry.attributes.position;
-  const openAmount = Math.sin(performance.now() * 0.005) * 0.05;
-  for (let i = 0; i < posAttr.count; i++) {
-    posAttr.setZ(i, posAttr.getZ(i) + openAmount);
+  if (posAttr) {
+    const openAmount = Math.sin(performance.now() * 0.005) * 0.05;
+    for (let i = 0; i < posAttr.count; i++) {
+      posAttr.setZ(i, posAttr.getZ(i) + openAmount);
+    }
+    posAttr.needsUpdate = true;
+    state.mesh.geometry.computeBoundingSphere();
   }
-  posAttr.needsUpdate = true;
-  state.mesh.geometry.computeBoundingSphere();
 }
 
 export function getHeadPosition() {
