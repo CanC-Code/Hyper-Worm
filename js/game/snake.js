@@ -3,7 +3,7 @@
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { getYawInput } from "../input/touchControls.js";
+import { getTurnInput, getTurnSpeed } from "../input/touchControls.js";
 import { world } from "../render/scene.js";
 
 export const state = {
@@ -42,16 +42,21 @@ export function getHeadDirection() {
 export function updateSnake(delta) {
   if (!state.mesh) return;
   
-  // Steering with smoother yaw
-  const yaw = getYawInput();
-  const turnSpeed = 3.5; // Degrees per second
-  const rotation = new THREE.Quaternion().setFromAxisAngle(
-    new THREE.Vector3(0, 1, 0),
-    yaw * delta * turnSpeed
-  );
-  state.direction.applyQuaternion(rotation).normalize();
+  // Get turn input and speed
+  const turnInput = getTurnInput();
+  const turnSpeed = getTurnSpeed();
+  
+  // Apply turning - smooth for holds, sharp for swipes
+  if (turnInput !== 0) {
+    const turnAmount = turnInput * turnSpeed * delta * 2.5;
+    const rotation = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0, 1, 0),
+      turnAmount
+    );
+    state.direction.applyQuaternion(rotation).normalize();
+  }
 
-  // Move head forward
+  // Move head forward - always moving in runner style
   const moveVec = state.direction.clone().multiplyScalar(state.speed * state.speedBoost * delta);
   state.mesh.position.add(moveVec);
 
