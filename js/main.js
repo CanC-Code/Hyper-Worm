@@ -1,10 +1,9 @@
 /// main.js
-/// Purpose: Application entry point and game loop
+/// Purpose: Application entry point and enhanced POV game loop
 /// Made by CCVO - CanC-Code
 
-// Local Three.js imports
-import * as THREE from "../three/three.module.js";  // corrected path
-import { scene, camera, renderer, resizeRenderer } from "./render/scene.js";
+import * as THREE from "../three/three.module.js";
+import { scene, camera, renderer, resizeRenderer, world, updateCamera, initWorldDragControls } from "./render/scene.js";
 import { state, resetGameState } from "./game/gameState.js";
 import { initSnake, updateSnake, growSnake, getHeadPosition, setDirection } from "./game/snake.js";
 import { buildRoom, clearRoom } from "./game/room.js";
@@ -14,19 +13,18 @@ import { initTouchControls, getDirectionVector } from "./input/touchControls.js"
 
 /* ---------- HUD ---------- */
 const hud = document.getElementById("hud");
-
 function updateHUD() {
   hud.textContent = `Bites: ${state.bites} | Room: ${state.room}`;
 }
 
 /* ---------- GAME RESET ---------- */
 function resetGame() {
-  clearRoom(scene);
-  clearDoor(scene);
+  clearRoom(world);
+  clearDoor(world);
   resetGameState();
-  buildRoom(scene);
-  initSnake(scene);
-  spawnFood(scene);
+  buildRoom(world);
+  initSnake(world);
+  spawnFood(world);
   updateHUD();
 }
 
@@ -35,11 +33,15 @@ document.body.appendChild(renderer.domElement);
 window.addEventListener("resize", resizeRenderer);
 
 initTouchControls();
+initWorldDragControls();
 resetGame();
 
 /* ---------- GAME LOOP ---------- */
 let lastTime = performance.now();
 let moveAccumulator = 0;
+
+const baseSpeed = 2;          // starting slow
+const speedIncrement = 0.05;  // per second
 
 function animate(now) {
   requestAnimationFrame(animate);
@@ -51,6 +53,9 @@ function animate(now) {
     resetGame();
     return;
   }
+
+  // Progressive speed ramp
+  state.speed = baseSpeed + now / 1000 * speedIncrement;
 
   // Input → snake direction
   const dir = getDirectionVector();
@@ -68,24 +73,28 @@ function animate(now) {
 
     // Food
     if (checkFoodCollision(headPos)) {
-      growSnake(scene);
-      removeFood(scene);
+      growSnake(world);
+      removeFood(world);
       if (state.doorOpen) {
-        spawnDoor(scene);
+        spawnDoor(world);
       } else {
-        spawnFood(scene);
+        spawnFood(world);
       }
       updateHUD();
     }
 
     // Door
-    if (state.doorOpen && checkDoorEntry(headPos, scene)) {
-      clearRoom(scene);
-      buildRoom(scene);
-      spawnFood(scene);
+    if (state.doorOpen && checkDoorEntry(headPos, world)) {
+      clearRoom(world);
+      buildRoom(world);
+      spawnFood(world);
       updateHUD();
     }
   }
+
+  // Camera follow POV
+  const snakeDir = getDirectionVector();
+  updateCamera(getHeadPosition(), snakeDir);
 
   renderer.render(scene, camera);
 }
