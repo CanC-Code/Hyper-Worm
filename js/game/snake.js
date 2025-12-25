@@ -1,5 +1,5 @@
 /// snake.js
-/// Purpose: Single-mesh smooth snake with infinite growth
+/// Purpose: Smooth 3D snake with continuous free movement
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
@@ -7,11 +7,12 @@ import { world } from "../render/scene.js";
 
 /* ---------- Snake State ---------- */
 export const state = {
-  mesh: null,          // single mesh representing snake
+  mesh: null,
   speed: 2,
   direction: new THREE.Vector3(0, 0, 1),
-  mouthVertices: [],   // indices for mouth animation
+  mouthVertices: [],
   tailZ: 0,
+  directionInput: new THREE.Vector2(0, 1),
 };
 
 /* ---------- Initialize Snake from Mesh ---------- */
@@ -19,63 +20,51 @@ export function initSnakeFromMesh(mesh) {
   state.mesh = mesh;
   world.add(state.mesh);
 
-  // Identify mouth vertices (top/front of egg)
-  const pos = state.mesh.geometry.attributes.position;
-  const vertexCount = pos.count;
+  const posAttr = state.mesh.geometry.attributes.position;
+  const vertexCount = posAttr.count;
   state.mouthVertices = [];
   for (let i = 0; i < vertexCount; i++) {
-    if (pos.getZ(i) > 0.4) state.mouthVertices.push(i);
+    if (posAttr.getZ(i) > 0.4 && posAttr.getY(i) > 0) state.mouthVertices.push(i);
   }
-
-  // Tail Z coordinate for growth reference
-  const positions = pos.array;
-  state.tailZ = Math.min(...positions.filter((_, i) => i % 3 === 2));
 }
 
-/* ---------- Set Direction ---------- */
+/* ---------- Update Input Vector ---------- */
 export function setDirection(dirVec) {
-  const newDir = new THREE.Vector3(dirVec.x, 0, dirVec.y);
-  if (newDir.lengthSq() > 0) {
-    newDir.normalize();
-    // Smooth turning
-    state.direction.lerp(newDir, 0.2);
-  }
+  state.directionInput.copy(dirVec);
 }
 
 /* ---------- Update Snake ---------- */
 export function updateSnake(delta) {
-  const moveDist = state.speed * delta;
+  if (!state.mesh) return;
 
-  // Move mesh along direction
-  state.mesh.position.addScaledVector(state.direction, moveDist);
+  // Smoothly interpolate direction toward input
+  const desiredDir = new THREE.Vector3(state.directionInput.x, 0, state.directionInput.y);
+  if (desiredDir.lengthSq() > 0) desiredDir.normalize();
+  state.direction.lerp(desiredDir, 0.15); // smooth steering
 
-  // Optional: mouth animation shrink back
+  // Move snake along direction
+  state.mesh.position.addScaledVector(state.direction, state.speed * delta);
+
+  // Mouth animation placeholder
   const pos = state.mesh.geometry.attributes.position;
+  const openAmount = Math.sin(performance.now() * 0.005) * 0.05;
   for (const idx of state.mouthVertices) {
-    const x = pos.getX(idx);
-    const y = pos.getY(idx);
-    let z = pos.getZ(idx);
-    pos.setZ(idx, z); // placeholder for future mouth expansion
+    const z = pos.getZ(idx);
+    pos.setZ(idx, z + openAmount);
   }
   pos.needsUpdate = true;
-
-  // Update tail Z for growth
-  state.tailZ += moveDist;
+  state.mesh.geometry.computeBoundingSphere();
 }
 
 /* ---------- Grow Snake ---------- */
 export function growSnake() {
   if (!state.mesh) return;
   const pos = state.mesh.geometry.attributes.position;
-  const vertexCount = pos.count;
-
-  // Stretch all Z positions forward to simulate growth
-  for (let i = 0; i < vertexCount; i++) {
+  for (let i = 0; i < pos.count; i++) {
     const z = pos.getZ(i);
-    pos.setZ(i, z + 0.05); // small growth increment
+    pos.setZ(i, z + 0.05); // incremental growth
   }
   pos.needsUpdate = true;
-  state.tailZ += 0.05;
 }
 
 /* ---------- Get Head Position ---------- */
