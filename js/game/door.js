@@ -1,85 +1,31 @@
-/// door.js
-/// Smooth door spawning, animation, and collision
-/// Made by CCVO - CanC-Code
-
 import * as THREE from "../../three/three.module.js";
 import { state } from "./gameState.js";
 
 let doorMesh = null;
-let openProgress = 0;
-const OPEN_SPEED = 2.0; // seconds to fully open
 
-const doorMaterial = new THREE.MeshStandardMaterial({
-  color: 0x00ff88,
-  metalness: 0.6,
-  roughness: 0.4,
-  side: THREE.DoubleSide,
-});
+export function spawnDoor(scene) {
+  if (doorMesh) scene.remove(doorMesh);
 
-const doorGeometry = new THREE.PlaneGeometry(2, 3); // width x height
-
-/**
- * Spawn a smooth door at the center of +Z wall
- * @param {THREE.Group} sceneRoot
- */
-export function spawnDoor(sceneRoot) {
-  if (doorMesh) return; // already spawned
-
-  doorMesh = new THREE.Mesh(doorGeometry, doorMaterial);
-  doorMesh.position.set(0, 1.5, sceneRoot.position.z + 6); // front wall
-  doorMesh.rotation.y = 0;
-
-  doorMesh.userData.open = 0; // 0 = closed, 1 = fully open
-  sceneRoot.add(doorMesh);
+  const geo = new THREE.BoxGeometry(1.5, 2, 0.2);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x44ff44, metalness: 0.3 });
+  doorMesh = new THREE.Mesh(geo, mat);
+  doorMesh.position.set(0, 1, state.roomSize / 2 - 1);
+  scene.add(doorMesh);
 }
 
-/**
- * Animate door opening
- * Call every frame in game loop
- * @param {number} delta
- */
 export function updateDoor(delta) {
   if (!doorMesh) return;
-
-  if (state.doorOpen && doorMesh.userData.open < 1) {
-    doorMesh.userData.open += delta / OPEN_SPEED;
-    if (doorMesh.userData.open > 1) doorMesh.userData.open = 1;
-  }
-
-  // Smoothly move door aside (sliding)
-  const openOffset = doorMesh.userData.open * 1.5; // slide 1.5 units
-  doorMesh.position.x = openOffset;
+  // optional smooth animation
 }
 
-/**
- * Check if snake has entered the door
- * @param {THREE.Vector3} headPos
- * @param {THREE.Group} sceneRoot
- * @returns {boolean}
- */
-export function checkDoorEntry(headPos, sceneRoot) {
-  if (!doorMesh || doorMesh.userData.open < 0.9) return false;
-
-  const dx = headPos.x - doorMesh.position.x;
-  const dz = headPos.z - doorMesh.position.z;
-  if (Math.abs(dx) < 1 && Math.abs(dz) < 1) {
-    state.doorOpen = false; // reset
-    sceneRoot.remove(doorMesh);
-    doorMesh.geometry.dispose();
-    doorMesh.material.dispose();
-    doorMesh = null;
-    return true;
-  }
-  return false;
+export function checkDoorEntry(headPos, scene) {
+  if (!doorMesh) return false;
+  return headPos.distanceTo(doorMesh.position) < 0.8;
 }
 
-/**
- * Force clear door from scene
- * @param {THREE.Group} sceneRoot
- */
-export function clearDoor(sceneRoot) {
+export function clearDoor(scene) {
   if (!doorMesh) return;
-  sceneRoot.remove(doorMesh);
+  scene.remove(doorMesh);
   doorMesh.geometry.dispose();
   doorMesh.material.dispose();
   doorMesh = null;
