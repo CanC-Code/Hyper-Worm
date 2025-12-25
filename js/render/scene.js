@@ -1,13 +1,13 @@
 /// scene.js
-/// Scene, renderer, lighting, camera, and world
+/// Scene, renderer, lighting, camera, and world - ENHANCED
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
 
 /* ---------- SCENE ---------- */
 export const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.Fog(0x000000, 6, 60);
+scene.background = new THREE.Color(0x0a0a1a);
+scene.fog = new THREE.Fog(0x0a0a1a, 10, 35);
 
 /* ---------- CAMERA ---------- */
 export const camera = new THREE.PerspectiveCamera(
@@ -16,32 +16,60 @@ export const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
+camera.position.set(0, 2, -5);
 
 /* ---------- RENDERER ---------- */
-export const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(window.devicePixelRatio || 1);
+export const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: "high-performance"
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2x for performance
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
 
 /* ---------- WORLD ROOT ---------- */
 export const world = new THREE.Group();
 scene.add(world);
 
-/* ---------- LIGHT ---------- */
-const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+/* ---------- ENHANCED LIGHTING ---------- */
+// Ambient light for base illumination
+const ambient = new THREE.AmbientLight(0x4466ff, 0.3);
 scene.add(ambient);
 
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(8, 12, 6);
+// Main directional light (sun)
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(10, 15, 8);
 sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 50;
+sun.shadow.camera.left = -20;
+sun.shadow.camera.right = 20;
+sun.shadow.camera.top = 20;
+sun.shadow.camera.bottom = -20;
+sun.shadow.bias = -0.0001;
 scene.add(sun);
 
-/* ---------- FLOOR ---------- */
-const floorGeo = new THREE.PlaneGeometry(500, 500);
-const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.85, metalness: 0.15 });
+// Rim light for depth
+const rimLight = new THREE.DirectionalLight(0x6688ff, 0.4);
+rimLight.position.set(-8, 10, -8);
+scene.add(rimLight);
+
+// Hemisphere light for natural lighting
+const hemiLight = new THREE.HemisphereLight(0x4466ff, 0x223344, 0.5);
+scene.add(hemiLight);
+
+/* ---------- FLOOR (MASSIVE) ---------- */
+const floorGeo = new THREE.PlaneGeometry(1000, 1000);
+const floorMat = new THREE.MeshStandardMaterial({
+  color: 0x1a1a2e,
+  roughness: 0.9,
+  metalness: 0.1
+});
 const floor = new THREE.Mesh(floorGeo, floorMat);
 floor.rotation.x = -Math.PI / 2;
+floor.position.y = -0.01;
 floor.receiveShadow = true;
 world.add(floor);
 
@@ -52,18 +80,37 @@ export function resizeRenderer() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-/* ---------- CAMERA FOLLOW ---------- */
-export function updateCamera(snakeHead, forwardVec) {
-  const CAMERA_DISTANCE = 3.5;
-  const CAMERA_HEIGHT = 1.2;
-  const CAMERA_LERP = 0.15;
+/* ---------- ENHANCED CAMERA FOLLOW ---------- */
+let targetPosition = new THREE.Vector3();
+let targetLookAt = new THREE.Vector3();
 
-  const desiredPos = snakeHead.position.clone()
-    .add(forwardVec.clone().multiplyScalar(-CAMERA_DISTANCE))
+export function updateCamera(snakeHead, forwardVec) {
+  const CAMERA_DISTANCE = 4.5;
+  const CAMERA_HEIGHT = 2.0;
+  const CAMERA_LERP = 0.08; // Smoother following
+  const LOOK_AHEAD = 3.0;
+
+  // Calculate desired camera position
+  const offset = forwardVec.clone().multiplyScalar(-CAMERA_DISTANCE);
+  offset.y = 0; // Keep horizontal offset
+  
+  targetPosition.copy(snakeHead.position)
+    .add(offset)
     .add(new THREE.Vector3(0, CAMERA_HEIGHT, 0));
 
-  camera.position.lerp(desiredPos, CAMERA_LERP);
+  // Smoothly interpolate camera position
+  camera.position.lerp(targetPosition, CAMERA_LERP);
 
-  const lookTarget = snakeHead.position.clone().add(forwardVec.clone().multiplyScalar(2));
-  camera.lookAt(lookTarget);
+  // Look ahead of the snake
+  targetLookAt.copy(snakeHead.position)
+    .add(forwardVec.clone().multiplyScalar(LOOK_AHEAD))
+    .add(new THREE.Vector3(0, 0.5, 0));
+
+  // Smooth look-at
+  const currentLookAt = new THREE.Vector3();
+  camera.getWorldDirection(currentLookAt);
+  currentLookAt.multiplyScalar(10).add(camera.position);
+  currentLookAt.lerp(targetLookAt, CAMERA_LERP * 1.5);
+  
+  camera.lookAt(currentLookAt);
 }
