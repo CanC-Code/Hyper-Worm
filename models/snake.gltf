@@ -5,12 +5,12 @@
     {
       "name": "Head",
       "mesh": 0,
-      "translation": [0,0,0],
+      "translation": [0, 0, 0],
       "children": [
         {
           "name": "Mouth",
           "mesh": 1,
-          "translation": [0,-0.25,0.5]
+          "translation": [0, -0.25, 0.5]
         }
       ]
     }
@@ -20,7 +20,9 @@
       "name": "HeadMesh",
       "primitives": [
         {
-          "attributes": { "POSITION": 0 },
+          "attributes": {
+            "POSITION": 0
+          },
           "mode": 4
         }
       ]
@@ -29,7 +31,9 @@
       "name": "MouthMesh",
       "primitives": [
         {
-          "attributes": { "POSITION": 1 },
+          "attributes": {
+            "POSITION": 1
+          },
           "mode": 4
         }
       ]
@@ -38,7 +42,9 @@
       "name": "SegmentMesh",
       "primitives": [
         {
-          "attributes": { "POSITION": 2 },
+          "attributes": {
+            "POSITION": 2
+          },
           "mode": 4
         }
       ]
@@ -46,16 +52,59 @@
   ],
   "buffers": [
     {
-      "uri": "data:application/octet-stream;base64,AAAAAAAA8D8AAADwPwAAAPAwAADwPwAAAPAwAADwPwAAAPAwAADwPw==",
+      "byteLength": 72,
+      "uri": "data:application/octet-stream;base64,AAAAAAAA8D8AAADwPwAAAPAwAADwPwAAAPAwAADwPwAAAPAwAADwPw=="
+    },
+    {
+      "byteLength": 72,
+      "uri": "data:application/octet-stream;base64,AAAAAAAA8D8AAADwPwAAAPAwAADwPwAAAPAwAADwPwAAAPAwAADwPw=="
+    },
+    {
+      "byteLength": 72,
+      "uri": "data:application/octet-stream;base64,AAAAAAAA8D8AAADwPwAAAPAwAADwPwAAAPAwAADwPwAAAPAwAADwPw=="
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
       "byteLength": 72
     },
     {
-      "uri": "data:application/octet-stream;base64,AAAAAAAA8D8AAADwPwAAAPAwAADwPwAAAPAwAADwPwAAAPAwAADwPw==",
+      "buffer": 1,
+      "byteOffset": 0,
       "byteLength": 72
     },
     {
-      "uri": "data:application/octet-stream;base64,AAAAAAAA8D8AAADwPwAAAPAwAADwPwAAAPAwAADwPwAAAPAwAADwPw==",
+      "buffer": 2,
+      "byteOffset": 0,
       "byteLength": 72
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 8,
+      "type": "VEC3",
+      "max": [0.5,0.5,0.5],
+      "min": [-0.5,-0.5,-0.5]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 8,
+      "type": "VEC3",
+      "max": [0.25,0.25,0.25],
+      "min": [-0.25,-0.25,-0.25]
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 8,
+      "type": "VEC3",
+      "max": [0.5,0.5,0.5],
+      "min": [-0.5,-0.5,-0.5]
     }
   ]
 }
