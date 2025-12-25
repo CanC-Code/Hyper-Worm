@@ -1,61 +1,88 @@
 /// room.js
-/// Purpose: Room construction and wall collision logic
+/// Procedurally generate 3D room for Hyper-Worm
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
-import { state } from "./gameState.js";
+import { world } from "../render/scene.js";
 
-let walls = [];
+export const state = {
+  walls: [],
+  floor: null,
+  roomWidth: 10,
+  roomHeight: 4,
+  roomDepth: 10,
+};
 
-const wallMaterial = new THREE.MeshStandardMaterial({
-  color: 0x3333aa,
-  flatShading: true
-});
+/* ---------- Build Room ---------- */
+export function buildRoom(worldRef, width = 10, height = 4, depth = 10) {
+  state.roomWidth = width;
+  state.roomHeight = height;
+  state.roomDepth = depth;
 
-export function clearRoom(scene) {
-  walls.forEach(w => scene.remove(w));
-  walls.length = 0;
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x4444aa, side: THREE.BackSide });
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, side: THREE.DoubleSide });
+
+  // Floor
+  const floorGeo = new THREE.PlaneGeometry(width, depth);
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0;
+  worldRef.add(floor);
+  state.floor = floor;
+
+  // Ceiling (optional)
+  // const ceiling = new THREE.Mesh(floorGeo, floorMat);
+  // ceiling.rotation.x = Math.PI / 2;
+  // ceiling.position.y = height;
+  // worldRef.add(ceiling);
+  // state.walls.push(ceiling);
+
+  // Walls
+  const wallGeoH = new THREE.PlaneGeometry(width, height);
+  const wallGeoD = new THREE.PlaneGeometry(depth, height);
+
+  // +Z wall (front)
+  const wallFront = new THREE.Mesh(wallGeoH, wallMat);
+  wallFront.position.set(0, height / 2, depth / 2);
+  wallFront.rotation.y = Math.PI;
+  worldRef.add(wallFront);
+  state.walls.push(wallFront);
+
+  // -Z wall (back)
+  const wallBack = new THREE.Mesh(wallGeoH, wallMat);
+  wallBack.position.set(0, height / 2, -depth / 2);
+  wallBack.rotation.y = 0;
+  worldRef.add(wallBack);
+  state.walls.push(wallBack);
+
+  // +X wall (right)
+  const wallRight = new THREE.Mesh(wallGeoD, wallMat);
+  wallRight.position.set(width / 2, height / 2, 0);
+  wallRight.rotation.y = -Math.PI / 2;
+  worldRef.add(wallRight);
+  state.walls.push(wallRight);
+
+  // -X wall (left)
+  const wallLeft = new THREE.Mesh(wallGeoD, wallMat);
+  wallLeft.position.set(-width / 2, height / 2, 0);
+  wallLeft.rotation.y = Math.PI / 2;
+  worldRef.add(wallLeft);
+  state.walls.push(wallLeft);
 }
 
-export function buildRoom(scene) {
-  clearRoom(scene);
+/* ---------- Clear Room ---------- */
+export function clearRoom(worldRef) {
+  if (state.floor) {
+    worldRef.remove(state.floor);
+    state.floor.geometry.dispose();
+    state.floor.material.dispose();
+    state.floor = null;
+  }
 
-  const half = state.roomSize / 2;
-  const wallThickness = 1;
-
-  const horizGeo = new THREE.BoxGeometry(
-    state.roomSize + wallThickness,
-    1,
-    wallThickness
-  );
-
-  const vertGeo = new THREE.BoxGeometry(
-    wallThickness,
-    1,
-    state.roomSize
-  );
-
-  // North / South
-  [-half, half].forEach(z => {
-    const wall = new THREE.Mesh(horizGeo, wallMaterial);
-    wall.position.set(0, 0.5, z);
-    scene.add(wall);
-    walls.push(wall);
-  });
-
-  // East / West
-  [-half, half].forEach(x => {
-    const wall = new THREE.Mesh(vertGeo, wallMaterial);
-    wall.position.set(x, 0.5, 0);
-    scene.add(wall);
-    walls.push(wall);
-  });
-}
-
-export function isOutsideRoom(position) {
-  const limit = state.roomSize / 2 - 0.5;
-  return (
-    Math.abs(position.x) > limit ||
-    Math.abs(position.z) > limit
-  );
+  for (const wall of state.walls) {
+    worldRef.remove(wall);
+    wall.geometry.dispose();
+    wall.material.dispose();
+  }
+  state.walls = [];
 }
