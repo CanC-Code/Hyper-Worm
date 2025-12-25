@@ -23,7 +23,7 @@ function resetGame(snakeMesh) {
   clearRoom(world);
   clearDoor(world);
   resetGameState();
-  buildRoom(world, 12, 4, 12);   // Default room size
+  buildRoom(world, 12, 4, 12); // Default room
   initSnakeFromMesh(snakeMesh);
   spawnFood(world);
   updateHUD();
@@ -32,16 +32,15 @@ function resetGame(snakeMesh) {
 /* ---------- INITIAL SETUP ---------- */
 document.body.appendChild(renderer.domElement);
 window.addEventListener("resize", resizeRenderer);
-
 initTouchControls();
 
 /* ---------- START GAME WITH EGG MORPH ---------- */
 spawnSmoothEggSnake((snakeMesh) => {
-  // Position camera above/back for intro
+  // Camera positioned above/back for egg intro
   camera.position.copy(snakeMesh.position.clone().add(new THREE.Vector3(0, 3, -5)));
   camera.lookAt(snakeMesh.position);
 
-  // Start game
+  // Reset game when egg morph completes
   resetGame(snakeMesh);
 
   let lastTime = performance.now();
@@ -58,14 +57,14 @@ spawnSmoothEggSnake((snakeMesh) => {
       return;
     }
 
-    // Progressive speed ramp
+    // Progressive speed
     snakeState.speed = baseSpeed + now / 1000 * speedIncrement;
 
-    // Steering input
+    // Steering
     const dir = getDirectionVector();
-    setDirection({ x: dir.x, y: dir.y });
+    setDirection(dir);
 
-    // Update snake forward motion
+    // Continuous forward motion
     updateSnake(delta);
 
     const headPos = getHeadPosition();
@@ -87,7 +86,7 @@ spawnSmoothEggSnake((snakeMesh) => {
       updateHUD();
     }
 
-    // Camera follows snake POV
+    // Camera strictly follows snake POV
     updateCamera(delta);
 
     renderer.render(scene, camera);
