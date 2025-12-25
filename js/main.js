@@ -1,14 +1,21 @@
 /// main.js
-/// Full Hyper-Worm game loop with egg intro and POV camera
+/// Full Hyper-Worm game loop with egg intro
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../three/three.module.js";
 import { scene, camera, renderer, resizeRenderer, world, updateCamera } from "./render/scene.js";
-import { state as snakeState, initSnakeFromMesh, updateSnake, growSnake, getHeadPosition, setDirection } from "./game/snake.js";
+import {
+  state as snakeState,
+  initSnakeFromMesh,
+  updateSnake,
+  growSnake,
+  getHeadPosition,
+  setDirection
+} from "./game/snake.js";
 import { state, resetGameState } from "./game/gameState.js";
 import { buildRoom, clearRoom } from "./game/room.js";
 import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
-import { spawnDoor, updateDoor, checkDoorEntry, clearDoor } from "./game/door.js";
+import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
 import { initTouchControls, getDirectionVector } from "./input/touchControls.js";
 import { spawnSmoothEggSnake } from "./game/eggSnakeMorph.js";
 
@@ -37,15 +44,16 @@ initTouchControls();
 
 /* ---------- START GAME WITH EGG MORPH ---------- */
 spawnSmoothEggSnake((snakeMesh) => {
-  // Initial camera positioning above/back for intro
+  // Position camera for intro
   camera.position.copy(snakeMesh.position.clone().add(new THREE.Vector3(0, 3, -5)));
   camera.lookAt(snakeMesh.position);
 
+  // Reset game once snake appears
   resetGame(snakeMesh);
 
   let lastTime = performance.now();
   const baseSpeed = 2;
-  const speedIncrement = 0.05;
+  const speedIncrement = 0.02;
 
   function gameLoop(now) {
     requestAnimationFrame(gameLoop);
@@ -57,19 +65,19 @@ spawnSmoothEggSnake((snakeMesh) => {
       return;
     }
 
-    // Progressive speed ramp
+    // Gradually ramp speed
     snakeState.speed = baseSpeed + now / 1000 * speedIncrement;
 
     // Steering input
     const dir = getDirectionVector();
     setDirection({ x: dir.x, y: dir.y });
 
-    // Update snake
+    // Move snake
     updateSnake(delta);
 
     const headPos = getHeadPosition();
 
-    // Food
+    // Food collision
     if (checkFoodCollision(headPos)) {
       growSnake();
       removeFood(world);
@@ -78,7 +86,7 @@ spawnSmoothEggSnake((snakeMesh) => {
       updateHUD();
     }
 
-    // Door
+    // Door logic
     if (state.doorOpen && checkDoorEntry(headPos, world)) {
       clearRoom(world);
       buildRoom(world);
@@ -86,13 +94,9 @@ spawnSmoothEggSnake((snakeMesh) => {
       updateHUD();
     }
 
-    // Door animation
-    updateDoor(delta);
-
-    // Camera follows snake POV (behind the head, look at mouth)
+    // Camera strictly follows snake
     updateCamera(delta);
 
-    // Render scene
     renderer.render(scene, camera);
   }
 
