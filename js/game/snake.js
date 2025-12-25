@@ -2,7 +2,7 @@
 // Continuous segmented snake body using tapered TubeGeometry
 // CCVO + assistant — FINALIZED ARCHITECTURE
 
-import * as THREE from "./three/three.module.js";
+import * as THREE from "../../three/three.module.js";
 
 export class Snake {
   constructor({
