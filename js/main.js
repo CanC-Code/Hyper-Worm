@@ -199,6 +199,14 @@ hideMinimap(); // Hide during intro
 /* ---------- START GAME ---------- */
 spawnSmoothEggSnake((snakeMesh) => {
   showMinimap(); // Show minimap after hatching
+  
+  // Show control hints
+  const hint = document.createElement('div');
+  hint.className = 'control-hint';
+  hint.textContent = '🎮 Touch/Click & Drag to Steer • WASD/Arrows';
+  document.body.appendChild(hint);
+  setTimeout(() => hint.remove(), 7000);
+  
   initSnakeFromMesh(snakeMesh);
   buildRoom(world, state.roomSize);
   
