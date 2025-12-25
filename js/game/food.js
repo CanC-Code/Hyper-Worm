@@ -1,31 +1,79 @@
 /// food.js
-/// Food spawning and collision
+/// Food spawning and collision with enhanced visuals - ENHANCED
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
 import { state, registerBite } from "./gameState.js";
 
 let foodMesh = null;
+let foodGlow = null;
 
-export function spawnFood(world) {
+export function spawnFood(world, roomSize = 12) {
   if (foodMesh) world.remove(foodMesh);
+  if (foodGlow) world.remove(foodGlow);
 
-  const geo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-  const mat = new THREE.MeshStandardMaterial({ color: 0xff4444 });
+  // Main food mesh
+  const geo = new THREE.IcosahedronGeometry(0.35, 1);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xff3333,
+    roughness: 0.3,
+    metalness: 0.6,
+    emissive: 0xff0000,
+    emissiveIntensity: 0.5
+  });
   foodMesh = new THREE.Mesh(geo, mat);
+  foodMesh.castShadow = true;
 
-  const range = state.roomSize / 2 - 1;
-  foodMesh.position.set(
-    Math.floor(Math.random() * range * 2 - range),
-    0.3,
-    Math.floor(Math.random() * range * 2 - range)
-  );
+  // Glow effect
+  const glowGeo = new THREE.IcosahedronGeometry(0.5, 1);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xff6666,
+    transparent: true,
+    opacity: 0.3,
+    side: THREE.BackSide
+  });
+  foodGlow = new THREE.Mesh(glowGeo, glowMat);
+
+  // Position food randomly within room bounds (avoid edges)
+  const range = (roomSize / 2) - 2;
+  const x = (Math.random() * 2 - 1) * range;
+  const z = (Math.random() * 2 - 1) * range;
+  
+  foodMesh.position.set(x, 0.35, z);
+  foodGlow.position.set(x, 0.35, z);
+  
   world.add(foodMesh);
+  world.add(foodGlow);
+
+  // Animate food (bobbing and rotating)
+  const startTime = Date.now();
+  function animateFood() {
+    if (!foodMesh || !foodGlow) return;
+    
+    const elapsed = (Date.now() - startTime) / 1000;
+    
+    // Bobbing motion
+    const bob = Math.sin(elapsed * 3) * 0.1;
+    foodMesh.position.y = 0.35 + bob;
+    foodGlow.position.y = 0.35 + bob;
+    
+    // Rotation
+    foodMesh.rotation.y = elapsed * 2;
+    foodGlow.rotation.y = -elapsed * 1.5;
+    
+    // Pulsing glow
+    const pulse = 0.3 + Math.sin(elapsed * 4) * 0.15;
+    glowMat.opacity = pulse;
+    
+    requestAnimationFrame(animateFood);
+  }
+  animateFood();
 }
 
 export function checkFoodCollision(headPos) {
   if (!foodMesh) return false;
-  if (headPos.distanceTo(foodMesh.position) < 0.5) {
+  const distance = headPos.distanceTo(foodMesh.position);
+  if (distance < 0.6) {
     registerBite();
     return true;
   }
@@ -34,8 +82,16 @@ export function checkFoodCollision(headPos) {
 
 export function removeFood(world) {
   if (!foodMesh) return;
+  
   world.remove(foodMesh);
   foodMesh.geometry.dispose();
   foodMesh.material.dispose();
   foodMesh = null;
+  
+  if (foodGlow) {
+    world.remove(foodGlow);
+    foodGlow.geometry.dispose();
+    foodGlow.material.dispose();
+    foodGlow = null;
+  }
 }
