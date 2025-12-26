@@ -36,9 +36,34 @@ dirLight.shadow.camera.near = 0.5;
 dirLight.shadow.camera.far = 50;
 scene.add(dirLight);
 
+// --------------------------------------------------
 // Handle resize
+// --------------------------------------------------
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// --------------------------------------------------
+// Helper: clear all objects in scene
+// --------------------------------------------------
+export function clearScene() {
+  // Keep camera and lights, remove everything else
+  const preserved = [camera, ambientLight, dirLight, world];
+  scene.children.slice().forEach((child) => {
+    if (!preserved.includes(child)) {
+      scene.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach((m) => m.dispose());
+        } else {
+          child.material.dispose();
+        }
+      }
+    }
+  });
+  // Also clear children of the main world group
+  world.children.slice().forEach((child) => world.remove(child));
+}
