@@ -1,53 +1,54 @@
 /// scene.js
-/// Three.js scene setup for Hyper-Worm
+/// Renderer and scene utilities for Hyper-Worm
 /// Made by CCVO - CanC-Code
 
 import * as THREE from "../../three/three.module.js";
 
-export function initScene() {
-  // Scene
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0a1a);
+let rendererInstance = null;
 
-  // Camera
-  const camera = new THREE.PerspectiveCamera(
-    60,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    100
-  );
-  camera.position.set(0, 5, 10);
-  camera.lookAt(0, 0, 0);
+/**
+ * Initializes the WebGLRenderer with shadows and proper settings
+ * @param {number} width - Canvas width
+ * @param {number} height - Canvas height
+ * @returns {THREE.WebGLRenderer}
+ */
+export function initRenderer(width, height) {
+  rendererInstance = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  rendererInstance.setSize(width, height);
+  rendererInstance.setPixelRatio(window.devicePixelRatio);
+  rendererInstance.shadowMap.enabled = true;
+  rendererInstance.shadowMap.type = THREE.PCFSoftShadowMap;
+  rendererInstance.outputEncoding = THREE.sRGBEncoding;
 
-  // Renderer
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  document.body.appendChild(renderer.domElement);
+  return rendererInstance;
+}
 
-  // Snake placeholder
-  const snakeGeo = new THREE.CylinderGeometry(0.3, 0.3, 1, 8);
-  const snakeMat = new THREE.MeshStandardMaterial({ color: 0x88ffcc });
-  const snake = new THREE.Mesh(snakeGeo, snakeMat);
-  snake.position.y = 0.5;
-  snake.castShadow = true;
-  scene.add(snake);
-
-  // Lighting
-  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-  scene.add(ambient);
-
-  const directional = new THREE.DirectionalLight(0xffffff, 0.8);
-  directional.position.set(5, 10, 5);
-  directional.castShadow = true;
-  scene.add(directional);
-
-  // Handle resize
-  window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+/**
+ * Clears the scene completely, disposing geometries and materials
+ * @param {THREE.Scene} scene
+ */
+export function clearScene(scene) {
+  scene.traverse((obj) => {
+    if (obj.geometry) {
+      obj.geometry.dispose();
+    }
+    if (obj.material) {
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach((m) => m.dispose());
+      } else {
+        obj.material.dispose();
+      }
+    }
   });
 
-  return { scene, camera, renderer, snake };
+  while (scene.children.length > 0) {
+    scene.remove(scene.children[0]);
+  }
+}
+
+/**
+ * Returns the current renderer instance
+ */
+export function getRenderer() {
+  return rendererInstance;
 }
