@@ -4,7 +4,7 @@
 
 import * as THREE from "../../three/three.module.js";
 import { world, scene, camera } from "../render/scene.js";
-import { Snake } from "../entities/snake.js";
+import { Snake } from "../snake.js";
 
 export function spawnSmoothEggSnake(callback) {
 
