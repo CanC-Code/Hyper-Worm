@@ -1,15 +1,15 @@
 /// touchControls.js
-/// Intuitive tap-and-hold steering for 3D runner - ENHANCED
-/// Made by CCVO - CanC-Code
+/// Intuitive tap-and-hold steering for 3D runner
+/// CCVO / CanC-Code
 
-// Global input state exported for game loop
+// Exported input state for main loop
 export const inputState = {
-  turn: 0,      // -1 (left) to +1 (right)
-  forward: false // For potential forward swipes
+  turn: 0,     // -1 left, +1 right
+  forward: false
 };
 
 // Configuration
-const SCREEN_DEAD_ZONE = 0.15; // % of screen for dead zone
+const SCREEN_DEAD_ZONE = 0.15; // 15% dead zone
 const HOLD_TURN_SPEED = 1.0;
 const SWIPE_TURN_SPEED = 2.5;
 
@@ -42,12 +42,10 @@ export function initTouchControls() {
     const deltaX = e.touches[0].clientX - touchCenterX;
     const screenWidth = window.innerWidth;
 
-    const elapsed = Date.now() - swipeStartTime;
-    if (elapsed < 200 && Math.abs(deltaX) > 30) swipeMode = true;
+    if (Date.now() - swipeStartTime < 200 && Math.abs(deltaX) > 30) swipeMode = true;
 
     let normalized = deltaX / (screenWidth * 0.5);
 
-    // Dead zone
     if (Math.abs(normalized) < SCREEN_DEAD_ZONE) inputState.turn = 0;
     else {
       const sign = normalized > 0 ? 1 : -1;
@@ -85,8 +83,7 @@ export function initTouchControls() {
     const deltaX = e.clientX - mouseCenterX;
     const screenWidth = window.innerWidth;
 
-    const elapsed = Date.now() - mouseStartTime;
-    if (elapsed < 200 && Math.abs(deltaX) > 30) swipeMode = true;
+    if (Date.now() - mouseStartTime < 200 && Math.abs(deltaX) > 30) swipeMode = true;
 
     let normalized = deltaX / (screenWidth * 0.5);
 
@@ -117,9 +114,8 @@ export function initTouchControls() {
   });
 }
 
-// --- Call this inside your main game loop ---
+// Call this inside the main loop
 export function updateInputState() {
-  // Keyboard overrides if no touch/mouse input
   if (!touchActive && !mouseDown) {
     if (keyState.left) inputState.turn = -1.0;
     else if (keyState.right) inputState.turn = 1.0;
@@ -127,7 +123,7 @@ export function updateInputState() {
   }
 }
 
-// --- Query functions ---
+// Return turn speed
 export function getTurnSpeed() {
   return swipeMode ? SWIPE_TURN_SPEED : HOLD_TURN_SPEED;
 }
