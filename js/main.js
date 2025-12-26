@@ -1,97 +1,118 @@
 /// main.js
-/// Hyper-Worm main entry point
+/// Hyper-Worm main entry point - ENHANCED
 /// CCVO / CanC-Code
 
 import { world, scene, camera, renderer } from "./render/scene.js";
-import { initTouchControls, inputState, updateInputState, getTurnSpeed } from "./input/touchControls.js";
-import { buildRoom, clearRoom, state as roomState, checkWallCollision } from "./game/room.js";
+import { buildRoom, clearRoom, checkWallCollision } from "./game/room.js";
 import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
 import { spawnSmoothEggSnake } from "./game/eggSnakeMorph.js";
-import { Snake } from "./game/snake.js";
-import { initMinimap, updateMinimap, showMinimap, hideMinimap } from "./game/minimap.js";
+import { inputState, initTouchControls, updateInputState, getTurnSpeed } from "./input/touchControls.js";
+import { restartGame } from "./game/restart.js";
 import { showRestartMenu } from "./game/restartMenu.js";
+import { updateMinimap, initMinimap, showMinimap, hideMinimap } from "./game/minimap.js";
+import { gameState } from "./game/gameState.js";
+import { Snake } from "./game/snake.js";
 
 let snake = null;
 let roomSize = 12;
 let gameRunning = false;
 
-// ------------------------------
-// Initialize
-// ------------------------------
+// --------------------------------------------------
+// Initialization
+// --------------------------------------------------
+
 function initGame() {
-  // Clear previous world
+  // Reset state
   clearRoom(world);
   clearDoor(scene);
+  if (snake) {
+    world.remove(snake.object3D);
+    snake.dispose();
+    snake = null;
+  }
+  gameState.reset();
 
-  // Build new room
+  // Build room
   buildRoom(world, roomSize, 4);
+
+  // Spawn door
   spawnDoor(scene, roomSize);
 
-  // Reset snake
-  spawnSmoothEggSnake((newSnake) => {
-    snake = newSnake;
-    gameRunning = true;
-    document.getElementById("hud").classList.remove("loading");
-  });
-
-  // Minimap
+  // Initialize minimap
   initMinimap();
   showMinimap();
 
-  // Camera basic setup
-  camera.position.set(-5, 2, 0);
-  camera.lookAt(0, 0.7, 0);
+  // Initialize input
+  initTouchControls();
+
+  // Egg → Snake intro
+  spawnSmoothEggSnake((spawnedSnake) => {
+    snake = spawnedSnake;
+    gameRunning = true;
+    document.getElementById("hud").textContent = "🐍 Go!";
+    animate();
+  });
 }
 
-// ------------------------------
-// Game Loop
-// ------------------------------
-function gameLoop() {
-  requestAnimationFrame(gameLoop);
+// --------------------------------------------------
+// Main game loop
+// --------------------------------------------------
 
-  if (!gameRunning || !snake) return;
+function animate() {
+  if (!gameRunning) return;
+
+  requestAnimationFrame(animate);
 
   updateInputState();
 
-  const turnSpeed = getTurnSpeed();
+  if (snake) {
+    // Move snake
+    const turn = inputState.turn;
+    const speed = getTurnSpeed();
+    snake.update(turn * speed);
 
-  // Move snake
-  snake.update(inputState.turn * turnSpeed);
+    // Collision with walls
+    if (checkWallCollision(snake.getHeadPosition(), roomSize)) {
+      console.log("Hit wall!");
+      gameRunning = false;
+      showRestartMenu(() => {
+        restartGame(initGame);
+      });
+      return;
+    }
 
-  // Collision
-  if (checkWallCollision(snake.headPosition(), roomSize)) {
-    gameRunning = false;
-    showRestartMenu(scene, snake);
+    // Check door
+    if (checkDoorEntry(snake.getHeadPosition(), roomSize)) {
+      console.log("Door reached!");
+      // TODO: next room logic
+    }
   }
 
-  // Update camera behind snake
-  updateCameraFollow();
-
   // Update minimap
-  const foodPos = null; // placeholder
-  const doorPos = { x: 0, z: roomSize / 2 - 0.15 };
-  updateMinimap(snake.headPosition(), foodPos, doorPos, roomSize);
+  if (snake) {
+    updateMinimap(
+      snake.getHeadPosition(),
+      gameState.foodPos,
+      { x: 0, z: roomSize / 2 - 0.15 },
+      roomSize
+    );
+  }
+
+  // Camera follows snake dynamically
+  if (snake) {
+    const headPos = snake.getHeadPosition();
+    const cameraOffset = new THREE.Vector3(0, 2.5, -6);
+    camera.position.lerp(headPos.clone().add(cameraOffset), 0.1);
+    camera.lookAt(headPos);
+  }
 
   renderer.render(scene, camera);
 }
 
-// ------------------------------
-// Camera follow logic
-// ------------------------------
-function updateCameraFollow() {
-  if (!snake) return;
-  const offset = new THREE.Vector3(0, 2.5, -6);
-  const targetPos = snake.object3D.position.clone().add(offset);
-  camera.position.lerp(targetPos, 0.1);
-  camera.lookAt(snake.object3D.position);
-}
+// --------------------------------------------------
+// Start
+// --------------------------------------------------
 
-// ------------------------------
-// Start everything
-// ------------------------------
-initTouchControls();
-initGame();
-gameLoop();
-
-// Expose restart
-window.restartGame = () => initGame();
+window.addEventListener("load", () => {
+  initGame();
+});
