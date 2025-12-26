@@ -1,147 +1,97 @@
 /// main.js
 /// Hyper-Worm main entry point
-/// Made by CCVO - CanC-Code
+/// CCVO / CanC-Code
 
-import * as THREE from "../three/three.module.js";
-import { state as gameState } from "./game/gameState.js";
-import * as Touch from "./input/touchControls.js";
-import * as Room from "./game/room.js";
-import * as Food from "./game/food.js";
-import * as Door from "./game/door.js";
-import { restartGame } from "./game/restart.js";
-import { initRenderer } from "./render/scene.js";
+import { world, scene, camera, renderer } from "./render/scene.js";
+import { initTouchControls, inputState, updateInputState, getTurnSpeed } from "./input/touchControls.js";
+import { buildRoom, clearRoom, state as roomState, checkWallCollision } from "./game/room.js";
+import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
+import { spawnSmoothEggSnake } from "./game/eggSnakeMorph.js";
+import { Snake } from "./game/entities/snake.js";
+import { initMinimap, updateMinimap, showMinimap, hideMinimap } from "./game/minimap.js";
+import { showRestartMenu } from "./game/restartMenu.js";
 
-let scene, camera, renderer;
 let snake = null;
+let roomSize = 12;
+let gameRunning = false;
 
-const clock = new THREE.Clock();
+// ------------------------------
+// Initialize
+// ------------------------------
+function initGame() {
+  // Clear previous world
+  clearRoom(world);
+  clearDoor(scene);
 
-// --- Initialize everything ---
-function init() {
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0a1a);
+  // Build new room
+  buildRoom(world, roomSize, 4);
+  spawnDoor(scene, roomSize);
 
-  // Camera
-  camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
+  // Reset snake
+  spawnSmoothEggSnake((newSnake) => {
+    snake = newSnake;
+    gameRunning = true;
+    document.getElementById("hud").classList.remove("loading");
+  });
 
-  // Renderer
-  renderer = initRenderer(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+  // Minimap
+  initMinimap();
+  showMinimap();
 
-  // Lights
-  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-  scene.add(ambient);
-
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-  dirLight.position.set(5, 10, 5);
-  dirLight.castShadow = true;
-  scene.add(dirLight);
-
-  // Build initial room
-  Room.buildRoom(scene, gameState.roomSize);
-
-  // Spawn initial food
-  Food.spawnFood(scene, gameState.roomSize);
-
-  // Spawn door if needed
-  if (gameState.doorOpen) {
-    Door.spawnDoor(scene, gameState.roomSize);
-  }
-
-  // Snake
-  initSnake();
-
-  // Touch & input
-  Touch.initTouchControls();
-
-  // Resize listener
-  window.addEventListener("resize", onWindowResize);
-
-  // Start loop
-  animate();
+  // Camera basic setup
+  camera.position.set(-5, 2, 0);
+  camera.lookAt(0, 0.7, 0);
 }
 
-// --- Snake initialization ---
-function initSnake() {
-  const geo = new THREE.SphereGeometry(0.3, 16, 16);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x88ffcc });
-  snake = new THREE.Mesh(geo, mat);
-  snake.position.set(0, 0.3, 0);
-  snake.castShadow = true;
-  scene.add(snake);
-}
+// ------------------------------
+// Game Loop
+// ------------------------------
+function gameLoop() {
+  requestAnimationFrame(gameLoop);
 
-// --- Window resize handler ---
-function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
+  if (!gameRunning || !snake) return;
 
-// --- Camera follow ---
-function updateCamera() {
-  if (!snake) return;
+  updateInputState();
 
-  const offset = new THREE.Vector3(0, 3, -6);
-  offset.applyQuaternion(snake.quaternion);
-
-  camera.position.copy(snake.position.clone().add(offset));
-  camera.lookAt(snake.position.clone().add(new THREE.Vector3(0, 1, 0)));
-}
-
-// --- Game loop ---
-function animate() {
-  requestAnimationFrame(animate);
-
-  const delta = clock.getDelta();
-
-  // Update input
-  Touch.updateInputState();
+  const turnSpeed = getTurnSpeed();
 
   // Move snake
-  if (snake) {
-    const turnSpeed = Touch.getTurnSpeed();
-    snake.rotation.y -= Touch.inputState.turn * turnSpeed * delta;
+  snake.update(inputState.turn * turnSpeed);
 
-    const forward = new THREE.Vector3(0, 0, 1);
-    forward.applyQuaternion(snake.quaternion);
-    snake.position.add(forward.multiplyScalar(3 * delta));
+  // Collision
+  if (checkWallCollision(snake.headPosition(), roomSize)) {
+    gameRunning = false;
+    showRestartMenu(scene, snake);
   }
 
-  // Check collisions
-  if (Room.checkWallCollision(snake.position, gameState.roomSize)) {
-    console.log("Hit wall!");
-    restartGame(scene);
-    return;
-  }
+  // Update camera behind snake
+  updateCameraFollow();
 
-  if (Food.checkFoodCollision(snake.position)) {
-    Food.removeFood(scene);
-    Food.spawnFood(scene, gameState.roomSize);
+  // Update minimap
+  const foodPos = null; // placeholder
+  const doorPos = { x: 0, z: roomSize / 2 - 0.15 };
+  updateMinimap(snake.headPosition(), foodPos, doorPos, roomSize);
 
-    // Open door if needed
-    if (gameState.doorOpen) {
-      Door.spawnDoor(scene, gameState.roomSize);
-    }
-  }
-
-  if (gameState.doorOpen && Door.checkDoorEntry(snake.position, gameState.roomSize)) {
-    console.log("Entered door!");
-    gameState.room++;
-    restartGame(scene);
-  }
-
-  // Update camera
-  updateCamera();
-
-  // Render
   renderer.render(scene, camera);
 }
 
-// --- Start the game ---
-init();
+// ------------------------------
+// Camera follow logic
+// ------------------------------
+function updateCameraFollow() {
+  if (!snake) return;
+  const offset = new THREE.Vector3(0, 2.5, -6);
+  const targetPos = snake.object3D.position.clone().add(offset);
+  camera.position.lerp(targetPos, 0.1);
+  camera.lookAt(snake.object3D.position);
+}
+
+// ------------------------------
+// Start everything
+// ------------------------------
+initTouchControls();
+initGame();
+gameLoop();
+
+// Expose restart
+window.restartGame = () => initGame();
