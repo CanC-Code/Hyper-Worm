@@ -27,7 +27,7 @@
   <!-- Live Error Panel -->
   <script>
     ///// made by CanC-Code / CCVO
-    ///// Purpose: Global network/fetch error log panel with copy functionality
+    ///// Purpose: Global network/resource/JS error log panel with copy functionality
 
     document.addEventListener("DOMContentLoaded", () => {
 
@@ -52,7 +52,7 @@
       errorPanel.style.boxShadow = "0 4px 10px rgba(0,0,0,0.3)";
 
       const panelTitle = document.createElement("div");
-      panelTitle.textContent = "Network / Resource Errors";
+      panelTitle.textContent = "Network / Resource / JS Errors";
       panelTitle.style.fontWeight = "bold";
       panelTitle.style.marginBottom = "0.5rem";
       errorPanel.appendChild(panelTitle);
@@ -68,6 +68,7 @@
           entry.style.display = "flex";
           entry.style.justifyContent = "space-between";
           entry.style.alignItems = "center";
+          entry.style.whiteSpace = "pre-wrap";
 
           const text = document.createElement("span");
           text.textContent = msg;
@@ -94,13 +95,23 @@
           errorPanel.scrollTop = errorPanel.scrollHeight;
       }
 
-      // --- Global resource load errors ---
+      // --- Global resource load and JS runtime errors ---
       window.addEventListener("error", (e) => {
+          let msg = "";
+
           if (e.target && e.target.tagName) {
-              const msg = `RESOURCE LOAD ERROR: ${e.target.tagName} - ${e.target.src || e.target.href}`;
-              console.error(msg);
-              logError(msg);
+              // Resource loading error (script, link, img)
+              msg = `RESOURCE LOAD ERROR: ${e.target.tagName} - ${e.target.src || e.target.href || e.target.outerHTML}`;
+          } else {
+              // JS runtime error
+              msg = `JS ERROR: ${e.message} at ${e.filename || "unknown file"}:${e.lineno || 0}:${e.colno || 0}`;
+              if (e.error && e.error.stack) {
+                  msg += `\nStack: ${e.error.stack}`;
+              }
           }
+
+          console.error(msg);
+          logError(msg);
       }, true);
 
       // --- Wrapped fetch to catch network errors ---
