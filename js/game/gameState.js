@@ -1,8 +1,8 @@
-/// gameState.js
-/// Central mutable game state with progression system
-/// CCVO - CanC-Code
+///// gameState.js
+///// Central mutable game state with progression system
+///// CCVO - CanC-Code
 
-export const state = {
+export const gameState = {
   room: 1,
   bites: 0,
   speed: 3,
@@ -13,7 +13,7 @@ export const state = {
   totalScore: 0,
   highScore: 0,
 
-  // --- NEW: growth tuning ---
+  // --- Growth tuning ---
   snakeLength: 2.2,
   lengthPerBite: 0.6,
   lengthPerRoom: 1.5
@@ -26,7 +26,7 @@ export const state = {
 try {
   const saved = localStorage.getItem("hyperWormHighScore");
   if (saved) {
-    state.highScore = parseInt(saved, 10) || 0;
+    gameState.highScore = parseInt(saved, 10) || 0;
   }
 } catch (_) {}
 
@@ -35,15 +35,15 @@ try {
 // --------------------------------------------------
 
 export function resetGameState() {
-  state.room = 1;
-  state.bites = 0;
-  state.speed = 3;
-  state.alive = true;
-  state.doorOpen = false;
-  state.roomSize = 12;
-  state.totalScore = 0;
+  gameState.room = 1;
+  gameState.bites = 0;
+  gameState.speed = 3;
+  gameState.alive = true;
+  gameState.doorOpen = false;
+  gameState.roomSize = 12;
+  gameState.totalScore = 0;
 
-  state.snakeLength = 2.2;
+  gameState.snakeLength = 2.2;
 }
 
 // --------------------------------------------------
@@ -51,26 +51,26 @@ export function resetGameState() {
 // --------------------------------------------------
 
 export function registerBite() {
-  state.bites++;
-  state.totalScore += 10 * state.room;
+  gameState.bites++;
+  gameState.totalScore += 10 * gameState.room;
 
   // Grow snake declaratively
-  state.snakeLength += state.lengthPerBite;
+  gameState.snakeLength += gameState.lengthPerBite;
 
   // High score
-  if (state.totalScore > state.highScore) {
-    state.highScore = state.totalScore;
+  if (gameState.totalScore > gameState.highScore) {
+    gameState.highScore = gameState.totalScore;
     try {
       localStorage.setItem(
         "hyperWormHighScore",
-        state.highScore.toString()
+        gameState.highScore.toString()
       );
     } catch (_) {}
   }
 
   // Room completion
-  if (state.bites % state.bitesPerRoom === 0) {
-    state.doorOpen = true;
+  if (gameState.bites % gameState.bitesPerRoom === 0) {
+    gameState.doorOpen = true;
   }
 }
 
@@ -79,10 +79,10 @@ export function registerBite() {
 // --------------------------------------------------
 
 export function advanceRoom() {
-  state.room++;
-  state.doorOpen = false;
-  state.speed += 0.35;
+  gameState.room++;
+  gameState.doorOpen = false;
+  gameState.speed += 0.35;
 
   // Bonus length for survival
-  state.snakeLength += state.lengthPerRoom;
+  gameState.snakeLength += gameState.lengthPerRoom;
 }
