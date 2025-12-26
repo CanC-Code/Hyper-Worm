@@ -7,7 +7,7 @@ import { initTouchControls, inputState, updateInputState, getTurnSpeed } from ".
 import { buildRoom, clearRoom, state as roomState, checkWallCollision } from "./game/room.js";
 import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
 import { spawnSmoothEggSnake } from "./game/eggSnakeMorph.js";
-import { Snake } from "./game/entities/snake.js";
+import { Snake } from "./game/snake.js";
 import { initMinimap, updateMinimap, showMinimap, hideMinimap } from "./game/minimap.js";
 import { showRestartMenu } from "./game/restartMenu.js";
 
