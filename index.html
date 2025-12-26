@@ -23,6 +23,35 @@
       background: #000;
     }
   </style>
+
+  <!-- Global Network / Fetch Error Trap -->
+  <script>
+    ///// made by CanC-Code / CCVO
+    ///// Purpose: Global network/fetch error trap for Hyper-Worm
+
+    window.addEventListener("error", (e) => {
+        if (e.target && e.target.tagName) {
+            console.error("RESOURCE LOAD ERROR:", e.target.tagName, e.target.src || e.target.href);
+            alert("Resource failed to load:\n" + (e.target.src || e.target.href));
+        }
+    }, true);
+
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+        try {
+            const res = await originalFetch(...args);
+            if (!res.ok) {
+                console.error("FETCH FAILED:", args[0], res.status);
+                alert("Fetch failed:\n" + args[0] + "\nStatus: " + res.status);
+            }
+            return res;
+        } catch (err) {
+            console.error("FETCH NETWORK ERROR:", args[0], err);
+            alert("Network error fetching:\n" + args[0]);
+            throw err;
+        }
+    };
+  </script>
 </head>
 
 <body>
