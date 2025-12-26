@@ -24,69 +24,86 @@
     }
   </style>
 
-  <!-- Global Network / Fetch Error Trap with Copy -->
+  <!-- Live Error Panel -->
   <script>
     ///// made by CanC-Code / CCVO
-    ///// Purpose: Global network/fetch error trap with copy functionality
+    ///// Purpose: Global network/fetch error log panel with copy functionality
 
     document.addEventListener("DOMContentLoaded", () => {
 
-      // Create the error popup container
-      const errorPopup = document.createElement("div");
-      errorPopup.style.position = "fixed";
-      errorPopup.style.bottom = "20px";
-      errorPopup.style.left = "50%";
-      errorPopup.style.transform = "translateX(-50%)";
-      errorPopup.style.background = "#ff6b6b";
-      errorPopup.style.color = "#fff";
-      errorPopup.style.padding = "1rem";
-      errorPopup.style.borderRadius = "6px";
-      errorPopup.style.boxShadow = "0 4px 10px rgba(0,0,0,0.3)";
-      errorPopup.style.fontFamily = "monospace";
-      errorPopup.style.maxWidth = "90%";
-      errorPopup.style.zIndex = "9999";
-      errorPopup.style.display = "none";
-      errorPopup.style.whiteSpace = "pre-wrap";
+      // --- Create the error log panel ---
+      const errorPanel = document.createElement("div");
+      errorPanel.style.position = "fixed";
+      errorPanel.style.bottom = "0";
+      errorPanel.style.right = "0";
+      errorPanel.style.width = "350px";
+      errorPanel.style.maxHeight = "50vh";
+      errorPanel.style.overflowY = "auto";
+      errorPanel.style.background = "rgba(255,107,107,0.95)";
+      errorPanel.style.color = "#fff";
+      errorPanel.style.fontFamily = "monospace";
+      errorPanel.style.fontSize = "12px";
+      errorPanel.style.padding = "0.5rem";
+      errorPanel.style.zIndex = "9999";
+      errorPanel.style.borderTopLeftRadius = "8px";
+      errorPanel.style.display = "flex";
+      errorPanel.style.flexDirection = "column";
+      errorPanel.style.gap = "0.3rem";
+      errorPanel.style.boxShadow = "0 4px 10px rgba(0,0,0,0.3)";
 
-      const errorMessage = document.createElement("div");
-      errorPopup.appendChild(errorMessage);
+      const panelTitle = document.createElement("div");
+      panelTitle.textContent = "Network / Resource Errors";
+      panelTitle.style.fontWeight = "bold";
+      panelTitle.style.marginBottom = "0.5rem";
+      errorPanel.appendChild(panelTitle);
 
-      const copyBtn = document.createElement("button");
-      copyBtn.textContent = "Copy Error";
-      copyBtn.style.marginTop = "0.5rem";
-      copyBtn.style.cursor = "pointer";
-      copyBtn.style.padding = "0.2rem 0.5rem";
-      copyBtn.style.border = "none";
-      copyBtn.style.borderRadius = "4px";
-      copyBtn.style.background = "#fff";
-      copyBtn.style.color = "#ff6b6b";
-      copyBtn.onclick = () => {
-          navigator.clipboard.writeText(errorMessage.textContent).then(() => {
-              copyBtn.textContent = "Copied!";
-              setTimeout(() => copyBtn.textContent = "Copy Error", 1500);
-          });
-      };
-      errorPopup.appendChild(copyBtn);
+      document.body.appendChild(errorPanel);
 
-      document.body.appendChild(errorPopup);
+      // Function to log an error to the panel
+      function logError(msg) {
+          const entry = document.createElement("div");
+          entry.style.background = "rgba(0,0,0,0.2)";
+          entry.style.padding = "0.3rem";
+          entry.style.borderRadius = "4px";
+          entry.style.display = "flex";
+          entry.style.justifyContent = "space-between";
+          entry.style.alignItems = "center";
 
-      // Function to show the popup
-      function showError(msg) {
-          errorMessage.textContent = msg;
-          errorPopup.style.display = "block";
-          setTimeout(() => { errorPopup.style.display = "none"; }, 10000);
+          const text = document.createElement("span");
+          text.textContent = msg;
+          entry.appendChild(text);
+
+          const copyBtn = document.createElement("button");
+          copyBtn.textContent = "Copy";
+          copyBtn.style.marginLeft = "0.5rem";
+          copyBtn.style.cursor = "pointer";
+          copyBtn.style.border = "none";
+          copyBtn.style.borderRadius = "4px";
+          copyBtn.style.padding = "0.1rem 0.3rem";
+          copyBtn.style.background = "#fff";
+          copyBtn.style.color = "#ff6b6b";
+          copyBtn.onclick = () => {
+              navigator.clipboard.writeText(msg).then(() => {
+                  copyBtn.textContent = "Copied!";
+                  setTimeout(() => copyBtn.textContent = "Copy", 1000);
+              });
+          };
+          entry.appendChild(copyBtn);
+
+          errorPanel.appendChild(entry);
+          errorPanel.scrollTop = errorPanel.scrollHeight;
       }
 
-      // Global error trap for resources
+      // --- Global resource load errors ---
       window.addEventListener("error", (e) => {
           if (e.target && e.target.tagName) {
               const msg = `RESOURCE LOAD ERROR: ${e.target.tagName} - ${e.target.src || e.target.href}`;
               console.error(msg);
-              showError(msg);
+              logError(msg);
           }
       }, true);
 
-      // Wrapped fetch to catch network errors
+      // --- Wrapped fetch to catch network errors ---
       const originalFetch = window.fetch;
       window.fetch = async (...args) => {
           try {
@@ -94,13 +111,13 @@
               if (!res.ok) {
                   const msg = `FETCH FAILED: ${args[0]} - Status: ${res.status}`;
                   console.error(msg);
-                  showError(msg);
+                  logError(msg);
               }
               return res;
           } catch (err) {
               const msg = `FETCH NETWORK ERROR: ${args[0]} - ${err.message}`;
               console.error(msg);
-              showError(msg);
+              logError(msg);
               throw err;
           }
       };
