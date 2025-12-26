@@ -2,6 +2,7 @@
 /// Hyper-Worm main entry point - ENHANCED
 /// CCVO / CanC-Code
 
+import * as THREE from "./../three/three.module.js";
 import { world, scene, camera, renderer } from "./render/scene.js";
 import { buildRoom, clearRoom, checkWallCollision } from "./game/room.js";
 import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
@@ -9,7 +10,7 @@ import { spawnSmoothEggSnake } from "./game/eggSnakeMorph.js";
 import { inputState, initTouchControls, updateInputState, getTurnSpeed } from "./input/touchControls.js";
 import { restartGame } from "./game/restart.js";
 import { showRestartMenu } from "./game/restartMenu.js";
-import { updateMinimap, initMinimap, showMinimap, hideMinimap } from "./game/minimap.js";
+import { updateMinimap, initMinimap, showMinimap } from "./game/minimap.js";
 import { gameState } from "./game/gameState.js";
 import { Snake } from "./game/snake.js";
 
@@ -49,7 +50,8 @@ function initGame() {
   spawnSmoothEggSnake((spawnedSnake) => {
     snake = spawnedSnake;
     gameRunning = true;
-    document.getElementById("hud").textContent = "🐍 Go!";
+    const hud = document.getElementById("hud");
+    if (hud) hud.textContent = "🐍 Go!";
     animate();
   });
 }
@@ -86,20 +88,16 @@ function animate() {
       console.log("Door reached!");
       // TODO: next room logic
     }
-  }
 
-  // Update minimap
-  if (snake) {
+    // Update minimap
     updateMinimap(
       snake.getHeadPosition(),
       gameState.foodPos,
       { x: 0, z: roomSize / 2 - 0.15 },
       roomSize
     );
-  }
 
-  // Camera follows snake dynamically
-  if (snake) {
+    // Camera follows snake dynamically
     const headPos = snake.getHeadPosition();
     const cameraOffset = new THREE.Vector3(0, 2.5, -6);
     camera.position.lerp(headPos.clone().add(cameraOffset), 0.1);
