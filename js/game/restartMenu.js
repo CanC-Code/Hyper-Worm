@@ -1,50 +1,51 @@
 /// restartMenu.js
-/// Interactive restart menu for Hyper-Worm
+/// Display interactive restart menu
 /// CCVO / CanC-Code
 
-export function showRestartMenu(scene, snake = null) {
+export function showRestartMenu(callback) {
   let menu = document.getElementById("restart-menu");
+
   if (!menu) {
     menu = document.createElement("div");
     menu.id = "restart-menu";
-    menu.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(10,10,26,0.95);
-      border: 2px solid #00ff88;
-      border-radius: 12px;
-      padding: 20px 30px;
-      color: #00ff88;
-      font-family: monospace;
-      text-align: center;
-      z-index: 999;
-      backdrop-filter: blur(10px);
-    `;
+    menu.style.position = "fixed";
+    menu.style.top = "50%";
+    menu.style.left = "50%";
+    menu.style.transform = "translate(-50%, -50%)";
+    menu.style.padding = "20px 30px";
+    menu.style.background = "rgba(10, 10, 26, 0.9)";
+    menu.style.border = "2px solid #00ff88";
+    menu.style.borderRadius = "10px";
+    menu.style.color = "#00ff88";
+    menu.style.fontFamily = "Courier New, monospace";
+    menu.style.fontSize = "18px";
+    menu.style.textAlign = "center";
+    menu.style.zIndex = "100";
+    menu.style.boxShadow = "0 4px 20px rgba(0,255,136,0.3)";
     document.body.appendChild(menu);
   }
 
   menu.innerHTML = `
-    <div>💀 You hit a wall!</div>
-    <button id="watch-ad-btn">Watch Ad to Continue</button>
-    <button id="restart-btn">Restart Game</button>
+    <p>Game Over 🐍</p>
+    <button id="restart-button">Restart</button>
+    <p style="margin-top:10px;">Or <button id="ad-button">Watch Ad to Continue</button></p>
   `;
-  menu.style.display = "block";
 
-  // Watch ad simulation
-  document.getElementById("watch-ad-btn").onclick = () => {
-    menu.innerHTML = "<div>📺 Watching ad...</div>";
-    setTimeout(() => {
-      menu.style.display = "none";
-      if (snake) snake.reset(); // reset snake position
-      window.restartGame();
-    }, 5000);
+  const restartBtn = document.getElementById("restart-button");
+  const adBtn = document.getElementById("ad-button");
+
+  restartBtn.onclick = () => {
+    menu.remove();
+    callback();
   };
 
-  // Restart button
-  document.getElementById("restart-btn").onclick = () => {
-    menu.style.display = "none";
-    window.restartGame();
+  adBtn.onclick = () => {
+    adBtn.disabled = true;
+    adBtn.textContent = "Watching ad...";
+    // Simulate ad duration
+    setTimeout(() => {
+      menu.remove();
+      callback();
+    }, 5000); // 5 seconds
   };
 }
