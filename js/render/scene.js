@@ -1,54 +1,44 @@
 /// scene.js
-/// Renderer and scene utilities for Hyper-Worm
-/// Made by CCVO - CanC-Code
+/// Hyper-Worm 3D scene setup
+/// CCVO / CanC-Code
 
 import * as THREE from "../../three/three.module.js";
 
-let rendererInstance = null;
+export const scene = new THREE.Scene();
+export const world = new THREE.Group();
+scene.add(world);
 
-/**
- * Initializes the WebGLRenderer with shadows and proper settings
- * @param {number} width - Canvas width
- * @param {number} height - Canvas height
- * @returns {THREE.WebGLRenderer}
- */
-export function initRenderer(width, height) {
-  rendererInstance = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  rendererInstance.setSize(width, height);
-  rendererInstance.setPixelRatio(window.devicePixelRatio);
-  rendererInstance.shadowMap.enabled = true;
-  rendererInstance.shadowMap.type = THREE.PCFSoftShadowMap;
-  rendererInstance.outputEncoding = THREE.sRGBEncoding;
+// Camera
+export const camera = new THREE.PerspectiveCamera(
+  60,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
 
-  return rendererInstance;
-}
+// Renderer
+export const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
 
-/**
- * Clears the scene completely, disposing geometries and materials
- * @param {THREE.Scene} scene
- */
-export function clearScene(scene) {
-  scene.traverse((obj) => {
-    if (obj.geometry) {
-      obj.geometry.dispose();
-    }
-    if (obj.material) {
-      if (Array.isArray(obj.material)) {
-        obj.material.forEach((m) => m.dispose());
-      } else {
-        obj.material.dispose();
-      }
-    }
-  });
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+scene.add(ambientLight);
 
-  while (scene.children.length > 0) {
-    scene.remove(scene.children[0]);
-  }
-}
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight.position.set(5, 10, 7);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 50;
+scene.add(dirLight);
 
-/**
- * Returns the current renderer instance
- */
-export function getRenderer() {
-  return rendererInstance;
-}
+// Handle resize
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
