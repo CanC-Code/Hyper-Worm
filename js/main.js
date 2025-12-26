@@ -1,62 +1,84 @@
-// main.js (or wherever your game loop is)
+// main.js
+// Hyper-Worm main entry and game loop - ENHANCED
+// Author: CCVO + assistant
+
 import * as THREE from "../three/three.module.js";
-import { Snake } from "./game/snake.js";
-import { state as gameState } from "./game/gameState.js";
-import { inputState, updateInputState, getTurnSpeed } from "./input/touchControls.js";
-import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
-import { buildRoom, clearRoom, checkWallCollision } from "./game/room.js";
-import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
-import { initMinimap, updateMinimap } from "./game/minimap.js";
+import { Snake } from "../game/snake.js";
+import { spawnFood, removeFood, checkFoodCollision } from "../game/food.js";
+import { state as gameState, resetGameState } from "../game/gameState.js";
+import { buildRoom, clearRoom, checkWallCollision } from "../game/room.js";
+import { spawnDoor, clearDoor, checkDoorEntry } from "../game/door.js";
+import { initMinimap, updateMinimap } from "../game/minimap.js";
+import { initTouchControls, getTurnInput, getTurnSpeed } from "../input/touchControls.js";
 
-let scene, camera, renderer;
-let snake, headPos;
+// --- Renderer setup ---
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+// --- Scene & camera ---
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a1a);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 6, 12);
+camera.lookAt(0, 0, 0);
+
+// --- Lights ---
+const ambient = new THREE.AmbientLight(0xffffff, 0.35);
+scene.add(ambient);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+dirLight.position.set(5, 10, 7);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+// --- Snake ---
+const snake = new Snake(scene);
+let headPos = new THREE.Vector3(0, 0.35, 0);
+let forwardVec = new THREE.Vector3(0, 0, -1);
+const MOVE_SPEED = 3.0;
+
+// --- Room setup ---
 let roomSize = 12;
+buildRoom(scene, roomSize);
 
-// --- Initialize Scene ---
-function init() {
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
-  camera.position.set(0, 6, 10);
-  camera.lookAt(0,0,0);
+// --- Minimap ---
+initMinimap();
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+// --- Input ---
+initTouchControls();
 
-  // Initialize snake
-  snake = new Snake(scene);
-  headPos = new THREE.Vector3(0, 0.35, 0); // Safe starting position
+// --- Spawn initial food & door ---
+spawnFood(scene, roomSize);
+spawnDoor(scene, roomSize);
 
-  // Build initial room
-  buildRoom(scene, roomSize);
-
-  // Spawn first food
-  spawnFood(scene, roomSize);
-
-  // Minimap
-  initMinimap();
-}
-
-// --- Game Loop ---
+// --- Game loop ---
 function animate() {
   requestAnimationFrame(animate);
 
-  // --- Update input ---
-  updateInputState();
+  // --- Get turn input ---
+  const turnInput = getTurnInput();
+  const turnMultiplier = getTurnSpeed();
 
-  // --- Apply input to head movement ---
-  const turnSpeed = getTurnSpeed();
-  const delta = inputState.turn * turnSpeed * 0.05; // scale factor for smooth turning
+  // --- Apply turning ---
+  if (turnInput !== 0) {
+    const turnAngle = turnInput * turnMultiplier * 0.016; // ~60fps
+    const axis = new THREE.Vector3(0, 1, 0);
+    forwardVec.applyAxisAngle(axis, turnAngle).normalize();
+  }
 
-  // Update head rotation / movement
-  const angle = delta; // For simplicity, assume Y-up rotation
-  headPos.applyAxisAngle(new THREE.Vector3(0,1,0), angle);
+  // --- Move forward ---
+  const moveStep = MOVE_SPEED * 0.016;
+  const deltaMove = forwardVec.clone().multiplyScalar(moveStep);
+  headPos.add(deltaMove);
 
-  // Move forward
-  const moveStep = gameState.speed * 0.05; // speed factor
-  headPos.add(new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), headPos.y));
+  // Optional vertical bobbing
+  headPos.y = 0.35 + Math.sin(Date.now() * 0.005) * 0.05;
 
-  // --- Update snake ---
+  // --- Update snake spine ---
   snake.update(headPos);
 
   // --- Food collision ---
@@ -71,18 +93,36 @@ function animate() {
     gameState.alive = false;
   }
 
-  // --- Door check ---
+  // --- Door entry ---
   if (gameState.doorOpen && checkDoorEntry(headPos, roomSize)) {
     console.log("Enter door!");
-    // Advance room logic here...
+    gameState.room++;
+    gameState.doorOpen = false;
+    clearRoom(scene);
+    buildRoom(scene, roomSize);
+    clearDoor(scene);
+    spawnDoor(scene, roomSize);
+    removeFood(scene);
+    spawnFood(scene, roomSize);
+    resetGameState();
   }
 
-  // --- Minimap update ---
+  // --- Minimap ---
   updateMinimap(headPos, checkFoodCollision.__foodPosition || null, null, roomSize);
 
+  // --- Camera follow ---
+  camera.position.lerp(new THREE.Vector3(headPos.x, 6, headPos.z + 12), 0.1);
+  camera.lookAt(headPos.x, headPos.y, headPos.z);
+
+  // --- Render ---
   renderer.render(scene, camera);
 }
 
-// --- Start ---
-init();
 animate();
+
+// --- Handle resize ---
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
