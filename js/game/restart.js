@@ -3,9 +3,9 @@
 /// Made by CCVO - CanC-Code
 
 import { state as gameState, resetGameState } from "../game/gameState.js";
-import { clearRoom, buildRoom } from "../game/room.js";
-import { clearDoor, spawnDoor } from "../game/door.js";
-import { removeFood, spawnFood } from "../game/food.js";
+import { clearRoom, buildRoom } from "./room.js";
+import { clearDoor, spawnDoor } from "./door.js";
+import { removeFood, spawnFood } from "./food.js";
 import { clearScene } from "../render/scene.js";
 import * as THREE from "../../three/three.module.js";
 
