@@ -2,7 +2,7 @@
 /// Hyper-Worm main entry point - ENHANCED
 /// CCVO / CanC-Code
 
-import * as THREE from "./../three/three.module.js";
+import * as THREE from "../three/three.module.js";
 import { world, scene, camera, renderer } from "./render/scene.js";
 import { buildRoom, clearRoom, checkWallCollision } from "./game/room.js";
 import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
