@@ -2,16 +2,16 @@
 /// Entry point for Hyper-Worm 3D game - ENHANCED
 /// Made by CCVO - CanC-Code
 
-import * as THREE from "../three/three.module.js";
+import * as THREE from "./../three/three.module.js";
 
-import { Snake } from "../game/snake.js";
-import { spawnFood, checkFoodCollision, removeFood } from "../game/food.js";
-import { state as gameState } from "../game/gameState.js";
-import { buildRoom, checkWallCollision } from "../game/room.js";
-import { spawnDoor, checkDoorEntry, clearDoor } from "../game/door.js";
-import { initMinimap, updateMinimap } from "../game/minimap.js";
-import { initTouchControls, getTurnInput, getTurnSpeed } from "../input/touchControls.js";
-import { initRestart, restartGame } from "../game/restart.js";
+import { Snake } from "./game/snake.js";
+import { spawnFood, checkFoodCollision, removeFood } from "./game/food.js";
+import { state as gameState } from "./game/gameState.js";
+import { buildRoom, checkWallCollision } from "./game/room.js";
+import { spawnDoor, checkDoorEntry, clearDoor } from "./game/door.js";
+import { initMinimap, updateMinimap } from "./game/minimap.js";
+import { initTouchControls, getTurnInput, getTurnSpeed } from "./input/touchControls.js";
+import { initRestart, restartGame } from "./game/restart.js";
 
 // --- Scene Setup ---
 const scene = new THREE.Scene();
@@ -105,7 +105,12 @@ function animate() {
   }
 
   // Update minimap
-  updateMinimap(headPos, checkFoodCollision.__foodPosition, new THREE.Vector3(0, 1.4, roomSize / 2 - 0.15), roomSize);
+  updateMinimap(
+    headPos,
+    checkFoodCollision.__foodPosition,
+    new THREE.Vector3(0, 1.4, roomSize / 2 - 0.15),
+    roomSize
+  );
 
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
