@@ -1,46 +1,29 @@
 /// restart.js
-/// Handles game restarts, including future "continue" features
+/// Restart system for Hyper-Worm
 /// Made by CCVO - CanC-Code
 
-import { state as gameState, resetGameState } from "./gameState.js";
-import { clearRoom, buildRoom } from "./room.js";
-import { clearDoor, spawnDoor } from "./door.js";
-import { removeFood, spawnFood } from "./food.js";
-import { Snake } from "./snake.js";
+import { state as gameState, resetGameState } from "../game/gameState.js";
+import * as Room from "../game/room.js";
+import * as Food from "../game/food.js";
+import * as Door from "../game/door.js";
 
-let snakeInstance = null;
-let sceneRef = null;
-let roomSizeRef = 12;
-
-export function initRestart(scene, snake, roomSize = 12) {
-  snakeInstance = snake;
-  sceneRef = scene;
-  roomSizeRef = roomSize;
-}
-
-export function restartGame() {
-  if (!sceneRef || !snakeInstance) return;
-
-  console.log("Restarting game...");
-
+export function restartGame(scene) {
   // Reset game state
   resetGameState();
 
-  // Clear room and rebuild
-  clearRoom(sceneRef);
-  buildRoom(sceneRef, roomSizeRef);
+  // Clear existing objects
+  Room.clearRoom(scene);
+  Door.clearDoor(scene);
+  Food.removeFood(scene);
 
-  // Reset snake
-  const spawnPos = new THREE.Vector3(0, 0.35, 0); // safe center
-  snakeInstance.reset(spawnPos);
+  // Rebuild room
+  Room.buildRoom(scene, gameState.roomSize);
 
-  // Remove & spawn food
-  removeFood(sceneRef);
-  spawnFood(sceneRef, roomSizeRef);
+  // Respawn food
+  Food.spawnFood(scene, gameState.roomSize);
 
-  // Remove & spawn door
-  clearDoor(sceneRef);
-  spawnDoor(sceneRef, roomSizeRef);
-
-  // Reset other variables if needed
+  // Respawn door if needed
+  if (gameState.doorOpen) {
+    Door.spawnDoor(scene, gameState.roomSize);
+  }
 }
