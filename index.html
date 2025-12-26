@@ -1,66 +1,78 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Hyper Snake</title>
+<script>
+///// made by CanC-Code / CCVO
+///// Purpose: Global network/fetch error trap with copy functionality
 
-  <!--
-    Endless Snake Dungeon
-    Made by CCVO - CanC-Code
-  -->
+// Create the error popup container
+const errorPopup = document.createElement("div");
+errorPopup.style.position = "fixed";
+errorPopup.style.bottom = "20px";
+errorPopup.style.left = "50%";
+errorPopup.style.transform = "translateX(-50%)";
+errorPopup.style.background = "#ff6b6b";
+errorPopup.style.color = "#fff";
+errorPopup.style.padding = "1rem";
+errorPopup.style.borderRadius = "6px";
+errorPopup.style.boxShadow = "0 4px 10px rgba(0,0,0,0.3)";
+errorPopup.style.fontFamily = "monospace";
+errorPopup.style.maxWidth = "90%";
+errorPopup.style.zIndex = "9999";
+errorPopup.style.display = "none";
+errorPopup.style.whiteSpace = "pre-wrap";
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
+const errorMessage = document.createElement("div");
+errorPopup.appendChild(errorMessage);
 
-  <link rel="stylesheet" href="style/main.css" />
+const copyBtn = document.createElement("button");
+copyBtn.textContent = "Copy Error";
+copyBtn.style.marginTop = "0.5rem";
+copyBtn.style.cursor = "pointer";
+copyBtn.style.padding = "0.2rem 0.5rem";
+copyBtn.style.border = "none";
+copyBtn.style.borderRadius = "4px";
+copyBtn.style.background = "#fff";
+copyBtn.style.color = "#ff6b6b";
+copyBtn.onclick = () => {
+    navigator.clipboard.writeText(errorMessage.textContent).then(() => {
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => copyBtn.textContent = "Copy Error", 1500);
+    });
+};
+errorPopup.appendChild(copyBtn);
 
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      touch-action: none;
-      background: #000;
+document.body.appendChild(errorPopup);
+
+// Function to show the popup with message
+function showError(msg) {
+    errorMessage.textContent = msg;
+    errorPopup.style.display = "block";
+    setTimeout(() => { errorPopup.style.display = "none"; }, 10000);
+}
+
+// Global error trap for resources
+window.addEventListener("error", (e) => {
+    if (e.target && e.target.tagName) {
+        const msg = `RESOURCE LOAD ERROR: ${e.target.tagName} - ${e.target.src || e.target.href}`;
+        console.error(msg);
+        showError(msg);
     }
-  </style>
+}, true);
 
-  <!-- Global Network / Fetch Error Trap -->
-  <script>
-    ///// made by CanC-Code / CCVO
-    ///// Purpose: Global network/fetch error trap for Hyper-Worm
-
-    window.addEventListener("error", (e) => {
-        if (e.target && e.target.tagName) {
-            console.error("RESOURCE LOAD ERROR:", e.target.tagName, e.target.src || e.target.href);
-            alert("Resource failed to load:\n" + (e.target.src || e.target.href));
+// Wrapped fetch to catch network errors
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+    try {
+        const res = await originalFetch(...args);
+        if (!res.ok) {
+            const msg = `FETCH FAILED: ${args[0]} - Status: ${res.status}`;
+            console.error(msg);
+            showError(msg);
         }
-    }, true);
-
-    const originalFetch = window.fetch;
-    window.fetch = async (...args) => {
-        try {
-            const res = await originalFetch(...args);
-            if (!res.ok) {
-                console.error("FETCH FAILED:", args[0], res.status);
-                alert("Fetch failed:\n" + args[0] + "\nStatus: " + res.status);
-            }
-            return res;
-        } catch (err) {
-            console.error("FETCH NETWORK ERROR:", args[0], err);
-            alert("Network error fetching:\n" + args[0]);
-            throw err;
-        }
-    };
-  </script>
-</head>
-
-<body>
-  <div id="hud">Loading…</div>
-
-  <!-- Load Three.js first -->
-  <script type="module" src="three/three.module.js"></script>
-
-  <!-- Main game script -->
-  <script type="module" src="js/main.js"></script>
-</body>
-</html>
+        return res;
+    } catch (err) {
+        const msg = `FETCH NETWORK ERROR: ${args[0]} - ${err.message}`;
+        console.error(msg);
+        showError(msg);
+        throw err;
+    }
+};
+</script>
