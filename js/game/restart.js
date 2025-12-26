@@ -1,29 +1,35 @@
 /// restart.js
-/// Restart system for Hyper-Worm
+/// Handles full game restart / reset
 /// Made by CCVO - CanC-Code
 
 import { state as gameState, resetGameState } from "../game/gameState.js";
-import * as Room from "../game/room.js";
-import * as Food from "../game/food.js";
-import * as Door from "../game/door.js";
+import { clearRoom, buildRoom } from "../game/room.js";
+import { clearDoor, spawnDoor } from "../game/door.js";
+import { removeFood, spawnFood } from "../game/food.js";
+import { clearScene } from "../render/scene.js";
+import * as THREE from "../../three/three.module.js";
 
+/**
+ * Restart the game
+ * @param {THREE.Scene} scene
+ */
 export function restartGame(scene) {
-  // Reset game state
+  // Reset internal game state
   resetGameState();
 
-  // Clear existing objects
-  Room.clearRoom(scene);
-  Door.clearDoor(scene);
-  Food.removeFood(scene);
+  // Clear the scene completely
+  clearScene(scene);
 
-  // Rebuild room
-  Room.buildRoom(scene, gameState.roomSize);
+  // Rebuild the room
+  buildRoom(scene, gameState.roomSize);
 
-  // Respawn food
-  Food.spawnFood(scene, gameState.roomSize);
+  // Spawn the first food
+  spawnFood(scene, gameState.roomSize);
 
-  // Respawn door if needed
+  // Door is initially closed, only spawn if room requires
   if (gameState.doorOpen) {
-    Door.spawnDoor(scene, gameState.roomSize);
+    spawnDoor(scene, gameState.roomSize);
   }
+
+  console.log("Game restarted");
 }
