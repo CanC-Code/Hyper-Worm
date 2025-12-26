@@ -2,7 +2,7 @@
 /// Handles full game restart / reset
 /// Made by CCVO - CanC-Code
 
-import { state as gameState, resetGameState } from "../game/gameState.js";
+import { state as gameState, resetGameState } from "./gameState.js";
 import { clearRoom, buildRoom } from "./room.js";
 import { clearDoor, spawnDoor } from "./door.js";
 import { removeFood, spawnFood } from "./food.js";
