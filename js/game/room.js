@@ -122,6 +122,18 @@ export function buildRoom(worldRef, size = 12, height = 4) {
   });
 }
 
+// Add this function to your existing room.js
+
+export function updateWallVisibility(camera) {
+  roomState.walls.forEach((wall) => {
+    const wallPos = wall.position.clone();
+    const camToWall = wallPos.sub(camera.position).normalize();
+    const dot = camToWall.dot(camera.getWorldDirection(new THREE.Vector3()));
+    // Hide walls behind camera
+    wall.visible = dot > 0;
+  });
+}
+
 export function clearRoom(worldRef) {
   if (state.floor) {
     worldRef.remove(state.floor);
