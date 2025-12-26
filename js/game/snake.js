@@ -1,217 +1,108 @@
-// snake.js
-// Continuous segmented snake body using tapered TubeGeometry
-// CCVO + assistant — FINALIZED ARCHITECTURE
+/// snake.js
+/// Hyper-Worm tubular snake entity
+/// CCVO / CanC-Code
 
 import * as THREE from "../../three/three.module.js";
 
 export class Snake {
-  constructor({
-    segmentLength = 0.5,
-    initialLength = 2.2,
-    maxLength = 30,
-    radius = 0.28,
-    tailRadius = 0.10,
-    radialSegments = 12,
-    tubularSegments = 72,
-    growSpeed = 4.0
-  } = {}) {
+  constructor({ segmentLength = 0.5, initialLength = 1, radius = 0.3, taper = 0.5, speed = 1 }) {
+    this.segmentLength = segmentLength;
+    this.radius = radius;
+    this.taper = taper;
+    this.speed = speed;
 
-    // ---------------------------------
-    // Public root
-    // ---------------------------------
-    this.object3D = new THREE.Group();
-
-    // ---------------------------------
-    // Length control
-    // ---------------------------------
-    this.currentLength = initialLength;
+    this.length = initialLength;
     this.targetLength = initialLength;
-    this.maxLength = maxLength;
-    this.growSpeed = growSpeed;
+    this.segments = [];
 
-    // ---------------------------------
-    // Geometry params
-    // ---------------------------------
-    this.bodyRadius = radius;
-    this.tailRadius = tailRadius;
-    this.radialSegments = radialSegments;
-    this.tubularSegments = tubularSegments;
+    this.object3D = new THREE.Group();
+    this.head = new THREE.Object3D();
+    this.object3D.add(this.head);
 
-    // ---------------------------------
-    // Spine
-    // ---------------------------------
-    this.spine = [];
-    this.minPointDistance = 0.04;
-
-    // ---------------------------------
-    // Mesh
-    // ---------------------------------
-    this.mesh = null;
-
-    this._initMesh();
+    this.initSegments();
   }
 
-  /* ============================================================= */
-  /* Initialization                                                */
-  /* ============================================================= */
+  initSegments() {
+    this.segments = [];
+    for (let i = 0; i < this.length; i++) {
+      const segRadius = this.radius * (1 - (i / this.length) * this.taper);
+      const geo = new THREE.CylinderGeometry(segRadius, segRadius, this.segmentLength, 12);
+      geo.rotateX(Math.PI / 2);
 
-  _initMesh() {
-    const p0 = new THREE.Vector3(0, 0, 0);
-    const p1 = new THREE.Vector3(0, 0, -0.1);
-    this.spine.push(p0, p1);
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0x44ff44,
+        roughness: 0.5,
+        metalness: 0.3,
+        emissive: 0x22ff22,
+        emissiveIntensity: 0.2
+      });
 
-    const curve = new THREE.CatmullRomCurve3(this.spine, false, "catmullrom", 0.4);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(-i * this.segmentLength, 0, 0);
+      mesh.castShadow = true;
+      this.object3D.add(mesh);
+      this.segments.push(mesh);
+    }
+  }
 
-    const geometry = new THREE.TubeGeometry(
-      curve,
-      this.tubularSegments,
-      this.bodyRadius,
-      this.radialSegments,
-      false
-    );
+  update(turnInput = 0) {
+    // Move head forward
+    this.head.position.x += this.speed * 0.1;
+    this.head.rotation.y += turnInput * 0.05;
 
-    this._applyTaper(geometry);
+    // Update segments
+    let prevPos = this.head.position.clone();
+    let prevQuat = this.head.quaternion.clone();
 
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x33ff88,
-      roughness: 0.35,
-      metalness: 0.08
+    this.segments.forEach((seg) => {
+      // Smooth follow
+      seg.position.lerp(prevPos, 0.2);
+      seg.quaternion.slerp(prevQuat, 0.2);
+
+      prevPos = seg.position.clone();
+      prevQuat = seg.quaternion.clone();
     });
 
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.castShadow = true;
-
-    this.object3D.add(this.mesh);
+    // Grow towards target length
+    if (this.segments.length < this.targetLength) {
+      this.addSegment();
+    }
   }
 
-  /* ============================================================= */
-  /* Public API                                                    */
-  /* ============================================================= */
+  addSegment() {
+    const lastSeg = this.segments[this.segments.length - 1];
+    const segRadius = this.radius * (1 - (this.segments.length / this.targetLength) * this.taper);
+    const geo = new THREE.CylinderGeometry(segRadius, segRadius, this.segmentLength, 12);
+    geo.rotateX(Math.PI / 2);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x44ff44,
+      roughness: 0.5,
+      metalness: 0.3,
+      emissive: 0x22ff22,
+      emissiveIntensity: 0.2
+    });
 
-  /**
-   * Smoothly grow toward a length (used by egg intro + gameplay)
-   */
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(lastSeg.position);
+    mesh.castShadow = true;
+    this.object3D.add(mesh);
+    this.segments.push(mesh);
+  }
+
   setTargetLength(length) {
-    this.targetLength = THREE.MathUtils.clamp(
-      length,
-      0.5,
-      this.maxLength
-    );
+    this.targetLength = length;
   }
 
-  /**
-   * Discrete growth (food pickup)
-   */
-  grow(amount = 0.8) {
-    this.setTargetLength(this.targetLength + amount);
+  headPosition() {
+    return this.head.position.clone();
   }
 
-  /**
-   * Update AFTER head transform moves
-   */
-  update(headWorldPosition, delta) {
-    this._updateLength(delta);
-    this._updateSpine(headWorldPosition);
-    this._rebuildGeometry();
-  }
-
-  reset(position) {
-    this.spine.length = 0;
-    this.spine.push(
-      position.clone(),
-      position.clone().add(new THREE.Vector3(0, 0, -0.1))
-    );
-    this.currentLength = this.targetLength;
-  }
-
-  /* ============================================================= */
-  /* Length logic                                                  */
-  /* ============================================================= */
-
-  _updateLength(delta) {
-    if (this.currentLength === this.targetLength) return;
-
-    this.currentLength = THREE.MathUtils.damp(
-      this.currentLength,
-      this.targetLength,
-      this.growSpeed,
-      delta
-    );
-  }
-
-  /* ============================================================= */
-  /* Spine logic                                                   */
-  /* ============================================================= */
-
-  _updateSpine(headPos) {
-    const last = this.spine[0];
-    if (last && last.distanceToSquared(headPos) < this.minPointDistance ** 2) {
-      return;
-    }
-
-    this.spine.unshift(headPos.clone());
-
-    let accumulated = 0;
-    for (let i = 0; i < this.spine.length - 1; i++) {
-      accumulated += this.spine[i].distanceTo(this.spine[i + 1]);
-      if (accumulated > this.currentLength) {
-        this.spine.length = i + 1;
-        break;
-      }
-    }
-  }
-
-  /* ============================================================= */
-  /* Geometry                                                     */
-  /* ============================================================= */
-
-  _rebuildGeometry() {
-    if (this.spine.length < 2) return;
-
-    const curve = new THREE.CatmullRomCurve3(
-      this.spine,
-      false,
-      "catmullrom",
-      0.4
-    );
-
-    const geometry = new THREE.TubeGeometry(
-      curve,
-      this.tubularSegments,
-      this.bodyRadius,
-      this.radialSegments,
-      false
-    );
-
-    this._applyTaper(geometry);
-    geometry.computeVertexNormals();
-
-    this.mesh.geometry.dispose();
-    this.mesh.geometry = geometry;
-  }
-
-  _applyTaper(geometry) {
-    const pos = geometry.attributes.position;
-    const count = pos.count;
-
-    for (let i = 0; i < count; i++) {
-      const t = i / (count - 1);
-      const radius = THREE.MathUtils.lerp(
-        this.bodyRadius,
-        this.tailRadius,
-        t * t
-      );
-
-      const scale = radius / this.bodyRadius;
-
-      pos.setXYZ(
-        i,
-        pos.getX(i) * scale,
-        pos.getY(i) * scale,
-        pos.getZ(i)
-      );
-    }
-
-    pos.needsUpdate = true;
+  reset() {
+    this.segments.forEach((seg) => this.object3D.remove(seg));
+    this.head.position.set(0, 0.7, 0);
+    this.segments = [];
+    this.initSegments();
+    this.length = 1;
+    this.targetLength = 1;
   }
 }
