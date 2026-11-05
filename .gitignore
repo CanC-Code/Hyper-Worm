@@ -1,0 +1,4 @@
+js/_legacy/
+node_modules/
+.DS_Store
+*.log

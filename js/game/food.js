@@ -1,98 +1,51 @@
-/// food.js
-/// Food spawning and collision with enhanced visuals - ENHANCED
-/// Made by CCVO - CanC-Code
-
 import * as THREE from "../../three/three.module.js";
-import { state, registerBite } from "./gameState.js";
+import { GLOW_TEX } from "../render/scene.js";
 
-let foodMesh = null;
-let foodGlow = null;
-
-export function spawnFood(world, roomSize = 12) {
-  if (foodMesh) world.remove(foodMesh);
-  if (foodGlow) world.remove(foodGlow);
-
-  // Main food mesh - higher poly
-  const geo = new THREE.IcosahedronGeometry(0.4, 2); // More subdivisions
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0xff3333,
-    roughness: 0.2,
-    metalness: 0.7,
-    emissive: 0xff0000,
-    emissiveIntensity: 0.6
-  });
-  foodMesh = new THREE.Mesh(geo, mat);
-  foodMesh.castShadow = true;
-
-  // Glow effect - larger and more prominent
-  const glowGeo = new THREE.IcosahedronGeometry(0.6, 2);
-  const glowMat = new THREE.MeshBasicMaterial({
-    color: 0xff6666,
-    transparent: true,
-    opacity: 0.4,
-    side: THREE.BackSide
-  });
-  foodGlow = new THREE.Mesh(glowGeo, glowMat);
-
-  // Position food randomly within room bounds (avoid edges)
-  const range = (roomSize / 2) - 2;
-  const x = (Math.random() * 2 - 1) * range;
-  const z = (Math.random() * 2 - 1) * range;
-  
-  foodMesh.position.set(x, 0.35, z);
-  foodGlow.position.set(x, 0.35, z);
-  
-  world.add(foodMesh);
-  world.add(foodGlow);
-
-  // Animate food (bobbing and rotating)
-  const startTime = Date.now();
-  function animateFood() {
-    if (!foodMesh || !foodGlow) return;
-    
-    const elapsed = (Date.now() - startTime) / 1000;
-    
-    // Bobbing motion
-    const bob = Math.sin(elapsed * 3) * 0.1;
-    foodMesh.position.y = 0.35 + bob;
-    foodGlow.position.y = 0.35 + bob;
-    
-    // Rotation
-    foodMesh.rotation.y = elapsed * 2;
-    foodGlow.rotation.y = -elapsed * 1.5;
-    
-    // Pulsing glow
-    const pulse = 0.3 + Math.sin(elapsed * 4) * 0.15;
-    glowMat.opacity = pulse;
-    
-    requestAnimationFrame(animateFood);
+export class Food {
+  constructor(sphereRadius) {
+    this.sphereRadius = sphereRadius;
+    this.pos = new THREE.Vector3(0, sphereRadius, 0);
+    this.age = 0;
+    this.core = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.55, 1),
+      new THREE.MeshBasicMaterial({ color: 0xff2fd0, toneMapped: false })
+    );
+    this.glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: GLOW_TEX, color: 0xff2fd0, blending: THREE.AdditiveBlending,
+      transparent: true, depthWrite: false, opacity: 0.7
+    }));
+    this.glow.scale.setScalar(4.5);
+    this.group = new THREE.Group();
+    this.group.add(this.core, this.glow);
   }
-  animateFood();
-}
 
-export function checkFoodCollision(headPos) {
-  if (!foodMesh) return false;
-  checkFoodCollision.__foodPosition = foodMesh.position; // Store for minimap
-  const distance = headPos.distanceTo(foodMesh.position);
-  if (distance < 0.6) {
-    registerBite();
-    return true;
+  spawn(headPos) {
+    const minDist = this.sphereRadius * 0.8;
+    for (let i = 0; i < 40; i++) {
+      const u = Math.random() * 2 - 1;
+      const t = Math.random() * Math.PI * 2;
+      const s = Math.sqrt(1 - u * u);
+      const p = new THREE.Vector3(s*Math.cos(t), u, s*Math.sin(t)).multiplyScalar(this.sphereRadius);
+      if (p.distanceTo(headPos) > minDist) {
+        this.pos.copy(p);
+        const col = new THREE.Color().setHSL(Math.random(), 1, 0.6);
+        this.core.material.color.copy(col);
+        this.glow.material.color.copy(col);
+        this.age = 0;
+        return;
+      }
+    }
   }
-  return false;
-}
 
-export function removeFood(world) {
-  if (!foodMesh) return;
-  
-  world.remove(foodMesh);
-  foodMesh.geometry.dispose();
-  foodMesh.material.dispose();
-  foodMesh = null;
-  
-  if (foodGlow) {
-    world.remove(foodGlow);
-    foodGlow.geometry.dispose();
-    foodGlow.material.dispose();
-    foodGlow = null;
+  update(dt) {
+    this.age += dt;
+    this.core.position.copy(this.pos);
+    this.glow.position.copy(this.pos);
+    this.core.rotation.x += dt * 2;
+    this.core.rotation.y += dt * 2.5;
+    this.core.scale.setScalar(1 + 0.15 * Math.sin(this.age * 4.5));
+    this.glow.scale.setScalar(4.5 * (1 + 0.1 * Math.sin(this.age * 3.1)));
   }
+
+  checkEaten(headPos) { return headPos.distanceTo(this.pos) < 1.1; }
 }
