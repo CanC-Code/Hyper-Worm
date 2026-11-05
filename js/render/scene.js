@@ -85,6 +85,8 @@ const atmo = new THREE.Mesh(
 );
 world.add(atmo);
 
+// envRefs must be defined BEFORE the rings use it
+export const envRefs = { wire, atmo, rings: [] };
 
 // Glowing Energy Core
 world.add(new THREE.Mesh(
@@ -126,8 +128,6 @@ for (let i = 1; i <= 3; i++) {
     depthWrite: false, sizeAttenuation: true
   })));
 })();
-
-export const envRefs = { wire, atmo, rings: [] };
 
 export function fitCamera() {
   const w = window.innerWidth, h = window.innerHeight;
