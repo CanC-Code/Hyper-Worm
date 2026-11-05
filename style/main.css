@@ -200,3 +200,23 @@ body.playing #controls{
 
 body:not(.playing) .stick-zone,
 body:not(.playing) .boost-slot{ visibility:hidden; }
+
+/* ═══ UI POLISH ═══ */
+body:not(.playing) #hud {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+body.playing #hud {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.3s ease;
+}
+.panel .hint {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  left: 20px;
+  right: 20px;
+  text-align: center;
+  margin: 0;
+}

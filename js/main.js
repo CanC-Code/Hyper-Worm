@@ -197,6 +197,13 @@ function loop(now) {
 
 initTouchControls();
 updateHUD();
-$ovBtn.addEventListener("click", () => startGame());
+$ovBtn.addEventListener("click", () => {
+  try {
+    startGame();
+  } catch (err) {
+    alert("Start Error: " + err.message);
+    console.error(err);
+  }
+});
 fitCamera();
 requestAnimationFrame(loop);
