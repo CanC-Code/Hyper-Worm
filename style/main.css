@@ -220,3 +220,6 @@ body.playing #hud {
   text-align: center;
   margin: 0;
 }
+
+/* FIX: .panel .hint was fixed-positioned over the START button and intercepted clicks */
+.panel .hint{pointer-events:none !important}
