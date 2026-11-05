@@ -284,6 +284,7 @@ function loop(now) {
     if (food.checkEaten(snake.headPosition())) {
       addScore(10);
       snake.grow(2);
+      snake.bite();
       food.spawn(snake.headPosition());
       flashScreen();
       updateHUD();
@@ -306,6 +307,7 @@ function loop(now) {
       // Enemy eats food
       if (food.checkEaten(enemy.headPosition())) {
         enemy.grow(2);
+        enemy.bite();
         food.spawn(enemy.headPosition());
       }
 
