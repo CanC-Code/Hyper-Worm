@@ -1,129 +1,128 @@
-/// touchControls.js
-/// Intuitive tap-and-hold steering for 3D runner
-/// CCVO / CanC-Code
+/// touchControls.js — dual thumbsticks + keyboard
+/// CCVO — CanC-Code
 
-// Exported input state for main loop
 export const inputState = {
-  turn: 0,     // -1 left, +1 right
-  forward: false
+  steer: 0, orbitX: 0, orbitY: 0, boost: false,
+  keyLeft: false, keyRight: false, keyBoost: false,
+  keyOrbitL: false, keyOrbitR: false
 };
 
-// Configuration
-const SCREEN_DEAD_ZONE = 0.15; // 15% dead zone
-const HOLD_TURN_SPEED = 1.0;
-const SWIPE_TURN_SPEED = 2.5;
+const DZ = 0.08;
 
-let touchActive = false;
-let touchCenterX = 0;
-let swipeMode = false;
-let swipeStartTime = 0;
+function stick(base, knob, cb) {
+  let id = null, maxR = 1;
+  const measure = () => { maxR = Math.max(1, (base.clientWidth - knob.clientWidth) / 2); };
+  measure();
+  window.addEventListener("resize", measure);
 
-let mouseDown = false;
-let mouseCenterX = 0;
-let mouseStartTime = 0;
+  const move = (e) => {
+    const r = base.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let dx = e.clientX - cx, dy = e.clientY - cy;
+    const d = Math.hypot(dx, dy);
+    if (d > maxR) { const k = maxR / d; dx *= k; dy *= k; }
+    knob.style.transition = "none";
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    cb(dx / maxR, dy / maxR);
+  };
 
-const keyState = { left: false, right: false };
+  base.addEventListener("pointerdown", (e) => {
+    if (id !== null) return;
+    e.preventDefault();
+    id = e.pointerId;
+    base.setPointerCapture(id);
+    base.classList.add("active");
+    move(e);
+    if (navigator.vibrate) navigator.vibrate(6);
+  });
+
+  base.addEventListener("pointermove", (e) => {
+    if (e.pointerId === id) move(e);
+  });
+
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    base.classList.remove("active");
+    knob.style.transition = "transform .22s cubic-bezier(.2,1.3,.4,1)";
+    knob.style.transform = "translate(0px, 0px)";
+    cb(0, 0);
+  };
+  base.addEventListener("pointerup", end);
+  base.addEventListener("pointercancel", end);
+  base.addEventListener("contextmenu", (e) => e.preventDefault());
+}
 
 export function initTouchControls() {
-  // --- Touch Controls ---
-  window.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    touchActive = true;
-    swipeMode = false;
-    swipeStartTime = Date.now();
-    touchCenterX = e.touches[0].clientX;
-    inputState.forward = true;
-  });
+  const $ = (id) => document.getElementById(id);
+  const lb = $("stick-left-base"), lk = $("stick-left-knob");
+  const rb = $("stick-right-base"), rk = $("stick-right-knob");
+  const bb = $("btn-boost");
 
-  window.addEventListener("touchmove", (e) => {
-    e.preventDefault();
-    if (!touchActive) return;
+  if (lb && lk) stick(lb, lk, (x) => { inputState.steer = x; });
+  if (rb && rk) stick(rb, rk, (x, y) => { inputState.orbitX = x; inputState.orbitY = y; });
 
-    const deltaX = e.touches[0].clientX - touchCenterX;
-    const screenWidth = window.innerWidth;
+  if (bb) {
+    const on = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      inputState.boost = true;
+      bb.classList.add("active");
+      if (navigator.vibrate) navigator.vibrate(12);
+    };
+    const off = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      inputState.boost = false;
+      bb.classList.remove("active");
+    };
+    bb.addEventListener("pointerdown", on);
+    bb.addEventListener("pointerup", off);
+    bb.addEventListener("pointercancel", off);
+    bb.addEventListener("pointerleave", off);
+    bb.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
 
-    if (Date.now() - swipeStartTime < 200 && Math.abs(deltaX) > 30) swipeMode = true;
+  const km = { ArrowLeft: "keyLeft", a: "keyLeft", ArrowRight: "keyRight", d: "keyRight", q: "keyOrbitL", e: "keyOrbitR" };
 
-    let normalized = deltaX / (screenWidth * 0.5);
-
-    if (Math.abs(normalized) < SCREEN_DEAD_ZONE) inputState.turn = 0;
-    else {
-      const sign = normalized > 0 ? 1 : -1;
-      const magnitude = (Math.abs(normalized) - SCREEN_DEAD_ZONE) / (1 - SCREEN_DEAD_ZONE);
-      inputState.turn = sign * Math.min(magnitude * 1.5, 1.0);
-    }
-  });
-
-  window.addEventListener("touchend", () => {
-    touchActive = false;
-    inputState.turn = 0;
-    inputState.forward = false;
-    swipeMode = false;
-  });
-
-  window.addEventListener("touchcancel", () => {
-    touchActive = false;
-    inputState.turn = 0;
-    inputState.forward = false;
-    swipeMode = false;
-  });
-
-  // --- Mouse Controls ---
-  window.addEventListener("mousedown", (e) => {
-    mouseDown = true;
-    swipeMode = false;
-    mouseStartTime = Date.now();
-    mouseCenterX = e.clientX;
-    inputState.forward = true;
-  });
-
-  window.addEventListener("mousemove", (e) => {
-    if (!mouseDown) return;
-
-    const deltaX = e.clientX - mouseCenterX;
-    const screenWidth = window.innerWidth;
-
-    if (Date.now() - mouseStartTime < 200 && Math.abs(deltaX) > 30) swipeMode = true;
-
-    let normalized = deltaX / (screenWidth * 0.5);
-
-    if (Math.abs(normalized) < SCREEN_DEAD_ZONE) inputState.turn = 0;
-    else {
-      const sign = normalized > 0 ? 1 : -1;
-      const magnitude = (Math.abs(normalized) - SCREEN_DEAD_ZONE) / (1 - SCREEN_DEAD_ZONE);
-      inputState.turn = sign * Math.min(magnitude * 1.5, 1.0);
-    }
-  });
-
-  window.addEventListener("mouseup", () => {
-    mouseDown = false;
-    inputState.turn = 0;
-    inputState.forward = false;
-    swipeMode = false;
-  });
-
-  // --- Keyboard Controls ---
   window.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") keyState.left = true;
-    if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") keyState.right = true;
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (km[k]) inputState[km[k]] = true;
+    if (e.key === "Shift" || e.key === " ") { inputState.keyBoost = true; e.preventDefault(); }
   });
 
   window.addEventListener("keyup", (e) => {
-    if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") keyState.left = false;
-    if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") keyState.right = false;
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (km[k]) inputState[km[k]] = false;
+    if (e.key === "Shift" || e.key === " ") inputState.keyBoost = false;
+  });
+
+  window.addEventListener("blur", () => {
+    inputState.steer = inputState.orbitX = inputState.orbitY = 0;
+    inputState.boost = inputState.keyBoost = false;
+    inputState.keyLeft = inputState.keyRight = inputState.keyOrbitL = inputState.keyOrbitR = false;
+    document.querySelectorAll(".stick-zone.active, .boost-btn.active").forEach((el) => el.classList.remove("active"));
+    document.querySelectorAll(".stick-knob").forEach((el) => {
+      el.style.transition = "transform .22s";
+      el.style.transform = "translate(0px, 0px)";
+    });
   });
 }
 
-// Call this inside the main loop
-export function updateInputState() {
-  if (!touchActive && !mouseDown) {
-    if (keyState.left) inputState.turn = -1.0;
-    else if (keyState.right) inputState.turn = 1.0;
-    else inputState.turn = 0;
-  }
+export function getSteer() {
+  if (inputState.keyLeft) return -1;
+  if (inputState.keyRight) return 1;
+  const s = inputState.steer, a = Math.abs(s);
+  if (a < DZ) return 0;
+  const sign = s < 0 ? -1 : 1;
+  return sign * (a - DZ) / (1 - DZ);
 }
 
-// Return turn speed
-export function getTurnSpeed() {
-  return swipeMode ? SWIPE_TURN_SPEED : HOLD_TURN_SPEED;
+export function getBoost() {
+  return inputState.boost || inputState.keyBoost;
+}
+
+export function getOrbit() {
+  let x = inputState.orbitX, y = inputState.orbitY;
+  if (inputState.keyOrbitL) x = -1;
+  if (inputState.keyOrbitR) x = 1;
+  return { x, y };
 }

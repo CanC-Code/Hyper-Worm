@@ -1,149 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Hyper Snake</title>
-
-  <!--
-    Endless Snake Dungeon
-    Made by CCVO - CanC-Code
-  -->
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-
-  <link rel="stylesheet" href="style/main.css" />
-
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      touch-action: none;
-      background: #000;
-    }
-  </style>
-
-  <!-- Live Error Panel -->
-  <script>
-    ///// made by CanC-Code / CCVO
-    ///// Purpose: Global network/resource/JS error log panel with copy functionality
-
-    document.addEventListener("DOMContentLoaded", () => {
-
-      // --- Create the error log panel ---
-      const errorPanel = document.createElement("div");
-      errorPanel.style.position = "fixed";
-      errorPanel.style.bottom = "0";
-      errorPanel.style.right = "0";
-      errorPanel.style.width = "350px";
-      errorPanel.style.maxHeight = "50vh";
-      errorPanel.style.overflowY = "auto";
-      errorPanel.style.background = "rgba(255,107,107,0.95)";
-      errorPanel.style.color = "#fff";
-      errorPanel.style.fontFamily = "monospace";
-      errorPanel.style.fontSize = "12px";
-      errorPanel.style.padding = "0.5rem";
-      errorPanel.style.zIndex = "9999";
-      errorPanel.style.borderTopLeftRadius = "8px";
-      errorPanel.style.display = "flex";
-      errorPanel.style.flexDirection = "column";
-      errorPanel.style.gap = "0.3rem";
-      errorPanel.style.boxShadow = "0 4px 10px rgba(0,0,0,0.3)";
-
-      const panelTitle = document.createElement("div");
-      panelTitle.textContent = "Network / Resource / JS Errors";
-      panelTitle.style.fontWeight = "bold";
-      panelTitle.style.marginBottom = "0.5rem";
-      errorPanel.appendChild(panelTitle);
-
-      document.body.appendChild(errorPanel);
-
-      // Function to log an error to the panel
-      function logError(msg) {
-          const entry = document.createElement("div");
-          entry.style.background = "rgba(0,0,0,0.2)";
-          entry.style.padding = "0.3rem";
-          entry.style.borderRadius = "4px";
-          entry.style.display = "flex";
-          entry.style.justifyContent = "space-between";
-          entry.style.alignItems = "center";
-          entry.style.whiteSpace = "pre-wrap";
-
-          const text = document.createElement("span");
-          text.textContent = msg;
-          entry.appendChild(text);
-
-          const copyBtn = document.createElement("button");
-          copyBtn.textContent = "Copy";
-          copyBtn.style.marginLeft = "0.5rem";
-          copyBtn.style.cursor = "pointer";
-          copyBtn.style.border = "none";
-          copyBtn.style.borderRadius = "4px";
-          copyBtn.style.padding = "0.1rem 0.3rem";
-          copyBtn.style.background = "#fff";
-          copyBtn.style.color = "#ff6b6b";
-          copyBtn.onclick = () => {
-              navigator.clipboard.writeText(msg).then(() => {
-                  copyBtn.textContent = "Copied!";
-                  setTimeout(() => copyBtn.textContent = "Copy", 1000);
-              });
-          };
-          entry.appendChild(copyBtn);
-
-          errorPanel.appendChild(entry);
-          errorPanel.scrollTop = errorPanel.scrollHeight;
-      }
-
-      // --- Global resource load and JS runtime errors ---
-      window.addEventListener("error", (e) => {
-          let msg = "";
-
-          if (e.target && e.target.tagName) {
-              // Resource loading error (script, link, img)
-              msg = `RESOURCE LOAD ERROR: ${e.target.tagName} - ${e.target.src || e.target.href || e.target.outerHTML}`;
-          } else {
-              // JS runtime error
-              msg = `JS ERROR: ${e.message} at ${e.filename || "unknown file"}:${e.lineno || 0}:${e.colno || 0}`;
-              if (e.error && e.error.stack) {
-                  msg += `\nStack: ${e.error.stack}`;
-              }
-          }
-
-          console.error(msg);
-          logError(msg);
-      }, true);
-
-      // --- Wrapped fetch to catch network errors ---
-      const originalFetch = window.fetch;
-      window.fetch = async (...args) => {
-          try {
-              const res = await originalFetch(...args);
-              if (!res.ok) {
-                  const msg = `FETCH FAILED: ${args[0]} - Status: ${res.status}`;
-                  console.error(msg);
-                  logError(msg);
-              }
-              return res;
-          } catch (err) {
-              const msg = `FETCH NETWORK ERROR: ${args[0]} - ${err.message}`;
-              console.error(msg);
-              logError(msg);
-              throw err;
-          }
-      };
-
-    });
-  </script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#05010f" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Hyper Worm — Neon Sphere</title>
+<link rel="stylesheet" href="style/main.css" />
 </head>
-
 <body>
-  <div id="hud">Loading…</div>
+<canvas id="scene"></canvas>
+<div id="flash"></div>
 
-  <!-- Load Three.js first -->
-  <script type="module" src="three/three.module.js"></script>
+<div id="hud">
+  <div class="stat"><b id="score">0</b><span>SCORE</span></div>
+  <div class="stat"><b id="len">12</b><span>LENGTH</span></div>
+  <div class="stat"><b id="best">0</b><span>BEST</span></div>
+</div>
 
-  <!-- Main game script -->
-  <script type="module" src="js/main.js"></script>
+<div id="controls">
+  <div class="stick-zone" id="stick-left">
+    <div class="stick-base" id="stick-left-base">
+      <div class="stick-knob" id="stick-left-knob"></div>
+    </div>
+    <span class="stick-label">STEER</span>
+  </div>
+  <div class="boost-slot">
+    <button class="boost-btn" id="btn-boost" aria-label="boost">&#9889;</button>
+  </div>
+  <div class="stick-zone" id="stick-right">
+    <div class="stick-base" id="stick-right-base">
+      <div class="stick-knob" id="stick-right-knob"></div>
+    </div>
+    <span class="stick-label">ORBIT</span>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h1>HYPER<span>WORM</span></h1>
+    <p>Devour the neon orbs.<br>Don&rsquo;t bite your own tail.</p>
+    <button id="ov-btn">START</button>
+    <p class="hint">DRAG to orbit &middot; &#9664; &#9654; / A D to steer &middot; SHIFT or &#9889; turbo</p>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
