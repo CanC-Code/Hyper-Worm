@@ -8,7 +8,7 @@ import { inputState, initTouchControls, getSteer, getBoost, getOrbit } from "./i
 import { showRestartMenu, hideRestartMenu } from "./game/restartMenu.js";
 
 let snake = null;
-let enemySnake = null;
+let enemies = [];
 let food = null;
 let lastTime = performance.now();
 let dragState = null;
@@ -40,7 +40,8 @@ function flashScreen() {
 function initGame() {
   if (snake) { world.remove(snake.object3D); snake = null; }
   if (food)  { world.remove(food.group);     food = null; }
-  if (enemySnake) { world.remove(enemySnake.object3D); enemySnake = null; }
+  enemies.forEach(e => world.remove(e.object3D));
+  enemies = [];
 
   resetGameState();
 
@@ -98,23 +99,24 @@ function triggerStageChange() {
   envRefs.atmo.material.uniforms.uColor.value.setHex(c);
   
   // Spawn the Rival at Stage 5
-  if (gameState.stage === 5 && !enemySnake) {
+  if (gameState.stage === 5 && enemies.length === 0) {
     const u = Math.random() * 2 - 1;
     const t = Math.random() * Math.PI * 2;
     const s = Math.sqrt(1 - u * u);
     const ePos = new THREE.Vector3(s * Math.cos(t), u, s * Math.sin(t)).multiplyScalar(SPHERE_RADIUS);
     
-    enemySnake = new EnemySnake({
+    const newEnemy = new EnemySnake({
       sphereRadius: SPHERE_RADIUS, segmentLength: 0.5, initialSegments: 15,
       radius: 0.45, taper: 0.55, speed: 4.8
     });
     
     // Force enemy color to red
-    enemySnake.hue = 0.0;
-    enemySnake.headGlow.material.color.setHex(0xff0000);
+    newEnemy.hue = 0.0;
+    newEnemy.headGlow.material.color.setHex(0xff0000);
     
-    enemySnake.setHeading(ePos, new THREE.Vector3(1, 0, 0));
-    world.add(enemySnake.object3D);
+    newEnemy.setHeading(ePos, new THREE.Vector3(1, 0, 0));
+    world.add(newEnemy.object3D);
+    enemies.push(newEnemy);
     alert("WARNING: Stage 5. A rival worm has entered the arena.");
   }
 }
@@ -198,6 +200,60 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden && gameState.playing) pauseGame();
 });
 
+
+function checkBodyHit(headPos, targetSnake) {
+  const threshold = (0.4 + 0.45) * 1.2;
+  const skip = 10;
+  for (let s = skip; s < targetSnake.segCount; s++) {
+    if (targetSnake.segments[s].visible && headPos.distanceTo(targetSnake.segments[s].position) < threshold) {
+      return s;
+    }
+  }
+  return -1;
+}
+
+function handleBite(biter, bitten, hitIndex) {
+  // If the biter is smaller or equal, the biter dies.
+  if (biter.segCount <= bitten.segCount) {
+    if (biter !== snake) {
+      const idx = enemies.indexOf(biter);
+      if (idx !== -1) { world.remove(biter.object3D); enemies.splice(idx, 1); }
+    }
+    return false; // If biter is player, this returns false and triggers gameOver
+  }
+
+  // Biter is larger. Bitten splits.
+  const severedLength = bitten.segCount - hitIndex;
+  bitten.targetSegCount = hitIndex;
+  bitten.segCount = hitIndex;
+
+  if (severedLength < 5) return true;
+
+  const spawnPos = bitten.segments[hitIndex].position.clone();
+  const spawnDir = bitten.segments[hitIndex].position.clone().sub(bitten.segments[hitIndex+1].position).normalize();
+
+  const spawnEnemy = (length, dir) => {
+    const newEnemy = new EnemySnake({
+      sphereRadius: SPHERE_RADIUS, segmentLength: 0.5, initialSegments: length,
+      radius: 0.45, taper: 0.55, speed: 4.8
+    });
+    newEnemy.setHeading(spawnPos, dir);
+    newEnemy.hue = 0.0;
+    newEnemy.headGlow.material.color.setHex(0xff0000);
+    world.add(newEnemy.object3D);
+    enemies.push(newEnemy);
+  };
+
+  // HYRDA RULE: If the bitten snake is at least double the biter's length, split the severed part into two enemies
+  if (bitten.segCount > biter.segCount * 2) {
+    spawnEnemy(severedLength / 2, spawnDir);
+    spawnEnemy(severedLength / 2, spawnDir.clone().negate());
+  } else {
+    spawnEnemy(severedLength, spawnDir);
+  }
+  return true;
+}
+
 function loop(now) {
   requestAnimationFrame(loop);
   let dt = (now - lastTime) / 1000;
@@ -226,26 +282,61 @@ function loop(now) {
 
     if (snake.checkSelfCollision()) gameOver();
 
-    // Enemy AI Logic
-    if (enemySnake) {
-      enemySnake.speed = 4.5 + Math.min(gameState.stage * 0.2, 3.0); // AI gets faster
-      enemySnake.updateAI(dt, food.pos, false);
+    // Enemy AI Logic (Array-based for multiple enemies)
+    let playerDied = false;
+    
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const enemy = enemies[i];
+      enemy.speed = 4.5 + Math.min(gameState.stage * 0.2, 3.0);
+      enemy.updateAI(dt, food.pos, false);
       
-      if (food.checkEaten(enemySnake.headPosition())) {
-        enemySnake.grow(2);
-        food.spawn(enemySnake.headPosition()); // Respawn food away from enemy
+      // Enemy eats food
+      if (food.checkEaten(enemy.headPosition())) {
+        enemy.grow(2);
+        food.spawn(enemy.headPosition());
       }
-      
-      // Player dies if they touch the enemy
-      const distToEnemy = snake.headPosition().distanceTo(enemySnake.headPosition());
-      if (distToEnemy < (snake.radius + enemySnake.radius) * 1.5) {
-        gameOver();
+
+      // Enemy hits itself
+      if (enemy.checkSelfCollision()) {
+        world.remove(enemy.object3D);
+        enemies.splice(i, 1);
+        continue;
+      }
+
+      // HEAD-TO-HEAD COLLISION
+      if (snake.headPosition().distanceTo(enemy.headPosition()) < 1.2) {
+         if (snake.segCount > enemy.segCount) {
+             world.remove(enemy.object3D); enemies.splice(i, 1);
+         } else if (snake.segCount < enemy.segCount) {
+             playerDied = true; break;
+         } else {
+             world.remove(enemy.object3D); enemies.splice(i, 1);
+             playerDied = true; break;
+         }
+         continue;
+      }
+
+      // PLAYER HEAD HITS ENEMY BODY
+      const hitEnemyBody = checkBodyHit(snake.headPosition(), enemy);
+      if (hitEnemyBody !== -1) {
+          const survived = handleBite(snake, enemy, hitEnemyBody);
+          if (!survived) { playerDied = true; break; }
+          continue;
+      }
+
+      // ENEMY HEAD HITS PLAYER BODY
+      const hitPlayerBody = checkBodyHit(enemy.headPosition(), snake);
+      if (hitPlayerBody !== -1) {
+          handleBite(enemy, snake, hitPlayerBody);
+          continue;
       }
     }
+
+    if (playerDied) { gameOver(); return; }
   }
 
   if (food) food.update(dt);
-  if (enemySnake) enemySnake.updateSegments();
+  enemies.forEach(e => e.updateSegments());
 
   /* right-stick / Q-E orbit — continuous velocity while deflected */
   {
