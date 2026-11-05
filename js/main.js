@@ -45,7 +45,10 @@ function initGame() {
   const t = Math.random() * Math.PI * 2;
   const s = Math.sqrt(1 - u * u);
   const startPos = new THREE.Vector3(s * Math.cos(t), u, s * Math.sin(t)).multiplyScalar(SPHERE_RADIUS);
-  const startDir = new THREE.Vector3().randomDirection();
+  const u2 = Math.random() * 2 - 1;
+  const t2 = Math.random() * Math.PI * 2;
+  const s2 = Math.sqrt(1 - u2 * u2);
+  const startDir = new THREE.Vector3(s2 * Math.cos(t2), u2, s2 * Math.sin(t2));
   const n = startPos.clone().normalize();
   startDir.addScaledVector(n, -startDir.dot(n)).normalize();
 
