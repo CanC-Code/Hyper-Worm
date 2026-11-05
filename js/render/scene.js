@@ -85,6 +85,24 @@ const atmo = new THREE.Mesh(
 );
 world.add(atmo);
 
+
+// Glowing Energy Core
+world.add(new THREE.Mesh(
+  new THREE.SphereGeometry(SPHERE_RADIUS * 0.2, 32, 32),
+  new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending })
+));
+
+// Neon Orbital Rings
+for (let i = 1; i <= 3; i++) {
+  const ringGeo = new THREE.TorusGeometry(SPHERE_RADIUS * (0.8 + i * 0.15), 0.05, 8, 100);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x22e6ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2 + (i * 0.4);
+  ring.rotation.y = i * 0.6;
+  world.add(ring);
+  envRefs.rings.push(ring);
+}
+
 (function stars() {
   const N = 1400;
   const pos = new Float32Array(N * 3);
@@ -109,7 +127,7 @@ world.add(atmo);
   })));
 })();
 
-export const envRefs = { wire, atmo };
+export const envRefs = { wire, atmo, rings: [] };
 
 export function fitCamera() {
   const w = window.innerWidth, h = window.innerHeight;

@@ -85,40 +85,53 @@ function startGame() {
 
 function triggerStageChange() {
   gameState.stage++;
-  gameState.nextStageScore += 50 + (gameState.stage * 20); // Gets harder to level up
+  gameState.nextStageScore += 50; // Every 5 foods (50 points) is a new stage
   
-  // Visual "Crack" effect
+  // Violent screen crack effect
   flashScreen();
-  document.body.style.animation = "shake 0.4s"; // We'll add a shake keyframe
-  setTimeout(() => document.body.style.animation = "", 400);
+  document.body.style.animation = "shake 0.6s"; 
+  setTimeout(() => document.body.style.animation = "", 600);
 
-  // Change the world color based on the stage (Crimson on 5, Toxic green on 10, etc.)
+  // Massive neon center-screen announcement
+  const ann = document.getElementById("stage-announce");
+  if (ann) {
+    ann.textContent = "STAGE " + gameState.stage;
+    ann.style.animation = "stagePop 2s forwards";
+  }
+
+  // Shift the world's neon palette
   const colors = [0x22e6ff, 0xffaa00, 0xff2fd0, 0x8a5cff, 0xff0000, 0x00ff00];
   const c = colors[Math.min(gameState.stage - 1, colors.length - 1)];
   envRefs.wire.material.color.setHex(c);
   envRefs.atmo.material.uniforms.uColor.value.setHex(c);
-  
-  // Spawn the Rival at Stage 5
-  if (gameState.stage === 5 && enemies.length === 0) {
-    const u = Math.random() * 2 - 1;
-    const t = Math.random() * Math.PI * 2;
-    const s = Math.sqrt(1 - u * u);
-    const ePos = new THREE.Vector3(s * Math.cos(t), u, s * Math.sin(t)).multiplyScalar(SPHERE_RADIUS);
-    
-    const newEnemy = new EnemySnake({
-      sphereRadius: SPHERE_RADIUS, segmentLength: 0.5, initialSegments: 15,
-      radius: 0.45, taper: 0.55, speed: 4.8
-    });
-    
-    // Force enemy color to red
-    newEnemy.hue = 0.0;
-    newEnemy.headGlow.material.color.setHex(0xff0000);
-    
-    newEnemy.setHeading(ePos, new THREE.Vector3(1, 0, 0));
-    world.add(newEnemy.object3D);
-    enemies.push(newEnemy);
-    alert("WARNING: Stage 5. A rival worm has entered the arena.");
+  envRefs.rings.forEach(r => r.material.color.setHex(c));
+
+  // Spawn AI at Stage 3
+  if (gameState.stage === 3 && enemies.length === 0) {
+    spawnRival();
   }
+  // Spawn second AI at Stage 5
+  if (gameState.stage === 5 && enemies.length === 1) {
+    spawnRival();
+  }
+}
+
+function spawnRival() {
+  const u = Math.random() * 2 - 1;
+  const t = Math.random() * Math.PI * 2;
+  const s = Math.sqrt(1 - u * u);
+  const ePos = new THREE.Vector3(s * Math.cos(t), u, s * Math.sin(t)).multiplyScalar(SPHERE_RADIUS);
+  
+  const newEnemy = new EnemySnake({
+    sphereRadius: SPHERE_RADIUS, segmentLength: 0.5, initialSegments: 15,
+    radius: 0.45, taper: 0.55, speed: 4.8
+  });
+  
+  newEnemy.hue = 0.0;
+  newEnemy.headGlow.material.color.setHex(0xff0000);
+  newEnemy.setHeading(ePos, new THREE.Vector3(1, 0, 0));
+  world.add(newEnemy.object3D);
+  enemies.push(newEnemy);
 }
 
 function pauseGame() {
@@ -176,8 +189,8 @@ canvas.addEventListener("pointermove", e => {
   if (!dragState || dragState.id !== e.pointerId) return;
   const dx = e.clientX - dragState.x;
   const dy = e.clientY - dragState.y;
-  camTargetAz -= dx * 0.0062;
-  camTargetPol = THREE.MathUtils.clamp(camTargetPol - dy * 0.0062, 0.28, Math.PI - 0.28);
+  camTargetAz -= dx * 0.008;
+  camTargetPol = THREE.MathUtils.clamp(camTargetPol - dy * 0.008, 0.05, Math.PI - 0.05);
   dragState.x = e.clientX;
   dragState.y = e.clientY;
   idleTime = 0;
@@ -342,10 +355,10 @@ function loop(now) {
   {
     const o = getOrbit();
     if (o.x !== 0 || o.y !== 0) {
-      camTargetAz -= o.x * 2.2 * dt;
+      camTargetAz -= o.x * 3.5 * dt;
       camTargetPol = THREE.MathUtils.clamp(
-        camTargetPol - o.y * 1.8 * dt,
-        0.28, Math.PI - 0.28
+        camTargetPol - o.y * 3.0 * dt,
+        0.05, Math.PI - 0.05
       );
       idleTime = 0;
     }
