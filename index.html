@@ -8,6 +8,36 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>Hyper Worm — Neon Sphere</title>
+<script>
+(function(){
+  window.__errors=[];
+  function showErr(msg){
+    window.__errors.push(msg);
+    var el=document.getElementById("__err_panel");
+    if(!el){
+      el=document.createElement("pre");
+      el.id="__err_panel";
+      el.style.cssText="position:fixed;bottom:0;left:0;right:0;max-height:45vh;overflow:auto;background:rgba(160,0,0,.95);color:#fff;font:11px monospace;padding:10px;margin:0;z-index:99999;white-space:pre-wrap;border-top:2px solid #fff";
+      document.body.appendChild(el);
+    }
+    el.textContent=window.__errors.join("\n\n");
+  }
+  window.addEventListener("error",function(e){
+    var msg;
+    if(e.target&&e.target.tagName){
+      msg="RESOURCE: "+e.target.tagName+" "+(e.target.src||e.target.href||"");
+    }else{
+      msg="JS: "+(e.message||"error")+" @ "+(e.filename||"?")+":"+(e.lineno||0);
+    }
+    showErr(msg);
+  },true);
+  window.addEventListener("unhandledrejection",function(e){
+    var r=e.reason;
+    showErr("REJECT: "+(r&&(r.stack||r.message||r)));
+  });
+})();
+</script>
+
 <link rel="stylesheet" href="style/main.css" />
 </head>
 <body>
