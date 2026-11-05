@@ -197,7 +197,7 @@ export class Snake {
     if (this.biteTimer > 0) {
       this.biteTimer -= dt;
       const t = Math.max(0, this.biteTimer / 0.35); // 1 to 0
-      this.jaw.rotation.x = Math.sin(t * Math.PI) * 0.6; // open and close
+      this.jaw.rotation.x = Math.sin(t * Math.PI) * 0.9; // open and close
     } else {
       this.jaw.rotation.x = 0;
     }
@@ -229,11 +229,14 @@ export class Snake {
 
     this.updateSegments();
 
-    // Orient the head to look forward
-    this.headGroup.position.copy(this.headPos);
+    // Orient the head perfectly to the sphere curvature
     const up = this.headPos.clone().normalize();
-    const matrix = new THREE.Matrix4().lookAt(new THREE.Vector3(0,0,0), this.headDir, up);
-    this.headGroup.quaternion.setFromRotationMatrix(matrix);
+    this.headGroup.position.copy(this.headPos).add(up.clone().multiplyScalar(0.1)); // Slightly raised
+    const forward = this.headDir.clone();
+    const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+    const correctedForward = new THREE.Vector3().crossVectors(up, right).normalize();
+    const m = new THREE.Matrix4().makeBasis(right, up, correctedForward);
+    this.headGroup.quaternion.setFromRotationMatrix(m);
 
     // Color shifts
     const hue = (this.hue + 0.5) % 1;
@@ -274,10 +277,12 @@ export class Snake {
           const r = this.radius * (1 - k * this.taper);
           mesh.scale.setScalar(r * (1 + 0.08 * Math.sin(this.time * 7 - s * 0.55)));
           
-          // Align segment with the trail
-          const tangent = b.clone().sub(a).normalize();
+          // Align segment perfectly to the sphere curvature
+          const forward = b.clone().sub(a).normalize();
           const up = p.clone().normalize();
-          const m = new THREE.Matrix4().lookAt(new THREE.Vector3(0,0,0), tangent, up);
+          const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+          const correctedForward = new THREE.Vector3().crossVectors(up, right).normalize();
+          const m = new THREE.Matrix4().makeBasis(right, up, correctedForward);
           mesh.quaternion.setFromRotationMatrix(m);
 
           const color = new THREE.Color().setHSL((this.hue - s * 0.012 + 2) % 1, 1.0, 0.55 + 0.2 * (1 - k));

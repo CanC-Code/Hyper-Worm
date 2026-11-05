@@ -9,6 +9,8 @@ import { showRestartMenu, hideRestartMenu } from "./game/restartMenu.js";
 
 let snake = null;
 let enemies = [];
+let respawnTimers = [];
+let droppedFood = [];
 let food = null;
 let lastTime = performance.now();
 let dragState = null;
@@ -122,6 +124,11 @@ function spawnRival() {
   const s = Math.sqrt(1 - u * u);
   const ePos = new THREE.Vector3(s * Math.cos(t), u, s * Math.sin(t)).multiplyScalar(SPHERE_RADIUS);
   
+  // Spawn them far away from the player
+  if (snake && ePos.distanceTo(snake.headPosition()) < SPHERE_RADIUS * 0.8) {
+      ePos.negate(); 
+  }
+
   const newEnemy = new EnemySnake({
     sphereRadius: SPHERE_RADIUS, segmentLength: 0.5, initialSegments: 15,
     radius: 0.45, taper: 0.55, speed: 4.8
@@ -225,12 +232,35 @@ function checkBodyHit(headPos, targetSnake) {
   return -1;
 }
 
+
+function enemyDeathDrop(enemy, hitIndex) {
+  // Scatter food orbs from the severed pieces
+  const dropCount = Math.floor(enemy.segCount / 2);
+  for (let i = 0; i < dropCount; i++) {
+    const p = enemy.segments[hitIndex + i]?.position;
+    if (p) {
+      const newFood = new Food(SPHERE_RADIUS);
+      newFood.pos.copy(p);
+      newFood.core.material.color.setHex(0xff0000);
+      newFood.glow.material.color.setHex(0xff0000);
+      world.add(newFood.group);
+      // We will push these to a temporary array and handle them in the loop
+      droppedFood.push(newFood);
+    }
+  }
+}
+
 function handleBite(biter, bitten, hitIndex) {
   // If the biter is smaller or equal, the biter dies.
   if (biter.segCount <= bitten.segCount) {
     if (biter !== snake) {
       const idx = enemies.indexOf(biter);
-      if (idx !== -1) { world.remove(biter.object3D); enemies.splice(idx, 1); }
+      if (idx !== -1) { 
+        enemyDeathDrop(biter, 0);
+        world.remove(biter.object3D); 
+        enemies.splice(idx, 1); 
+        respawnTimers.push(3.0); // Respawn in 3 seconds
+      }
     }
     return false; // If biter is player, this returns false and triggers gameOver
   }
@@ -296,13 +326,29 @@ function loop(now) {
 
     if (snake.checkSelfCollision()) gameOver();
 
+    // Handle Respawn Timers
+    for (let i = respawnTimers.length - 1; i >= 0; i--) {
+      respawnTimers[i] -= dt;
+      if (respawnTimers[i] <= 0) {
+        spawnRival();
+        respawnTimers.splice(i, 1);
+      }
+    }
+
     // Enemy AI Logic (Array-based for multiple enemies)
     let playerDied = false;
     
     for (let i = enemies.length - 1; i >= 0; i--) {
       const enemy = enemies[i];
+      
+      // Smarter AI: Target food, but if player is close, target player!
+      let targetPos = food.pos;
+      if (snake.headPosition().distanceTo(enemy.headPosition()) < 5.0) {
+        targetPos = snake.headPosition();
+      }
+
       enemy.speed = 4.5 + Math.min(gameState.stage * 0.2, 3.0);
-      enemy.updateAI(dt, food.pos, false);
+      enemy.updateAI(dt, targetPos, false);
       
       // Enemy eats food
       if (food.checkEaten(enemy.headPosition())) {
@@ -313,18 +359,23 @@ function loop(now) {
 
       // Enemy hits itself
       if (enemy.checkSelfCollision()) {
+        enemyDeathDrop(enemy, 10);
         world.remove(enemy.object3D);
         enemies.splice(i, 1);
+        respawnTimers.push(2.0);
         continue;
       }
 
       // HEAD-TO-HEAD COLLISION
       if (snake.headPosition().distanceTo(enemy.headPosition()) < 1.2) {
          if (snake.segCount > enemy.segCount) {
+             enemyDeathDrop(enemy, 10);
              world.remove(enemy.object3D); enemies.splice(i, 1);
+             respawnTimers.push(3.0);
          } else if (snake.segCount < enemy.segCount) {
              playerDied = true; break;
          } else {
+             enemyDeathDrop(enemy, 10);
              world.remove(enemy.object3D); enemies.splice(i, 1);
              playerDied = true; break;
          }
@@ -348,6 +399,26 @@ function loop(now) {
     }
 
     if (playerDied) { gameOver(); return; }
+
+    // Handle Dropped Food Magnet & Consumption
+    for (let i = droppedFood.length - 1; i >= 0; i--) {
+      const df = droppedFood[i];
+      df.update(dt);
+      // Magnet effect
+      const dist = df.pos.distanceTo(snake.headPosition());
+      if (dist < 3.0) {
+        df.pos.lerp(snake.headPosition(), 10 * dt);
+      }
+      if (df.checkEaten(snake.headPosition())) {
+        addScore(5);
+        snake.grow(1);
+        snake.bite();
+        world.remove(df.group);
+        droppedFood.splice(i, 1);
+        updateHUD();
+        flashScreen();
+      }
+    }
   }
 
   if (food) food.update(dt);
