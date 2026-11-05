@@ -5,7 +5,9 @@ export const gameState = {
   playing: false,
   over: false,
   hue: 0.55,
-  time: 0
+  time: 0,
+  stage: 1,
+  nextStageScore: 50
 };
 
 try {
@@ -19,6 +21,8 @@ export function resetGameState() {
   gameState.over = false;
   gameState.hue = 0.55;
   gameState.time = 0;
+gameState.stage = 1;
+gameState.nextStageScore = 50;
 }
 
 export function addScore(points) {
