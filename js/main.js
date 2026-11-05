@@ -18,6 +18,7 @@ let dragState = null;
 let camAz = 0.9, camPol = 1.05, camDist = SPHERE_RADIUS * 3.6;
 let camTargetAz = camAz, camTargetPol = camPol, camTargetDist = camDist;
 let idleTime = 0;
+let targetFov = 58;
 
 const $score = document.getElementById("score");
 const $len   = document.getElementById("len");
@@ -168,13 +169,20 @@ function gameOver() {
 function updateCamera(dt) {
   idleTime += dt;
   if (!dragState && idleTime > 4) camTargetAz += dt * 0.08;
-  const k = 1 - Math.pow(0.001, dt);
+
+  // Smooth spring-damper for camera angles
+  const k = 1 - Math.exp(-8 * dt);
   camAz   += (camTargetAz   - camAz)   * k;
   camPol  += (camTargetPol  - camPol)  * k;
   camDist += (camTargetDist - camDist) * k;
 
-  // The camera now follows the snake's head instead of the center of the globe
   const targetPos = snake ? snake.headPos.clone() : new THREE.Vector3(0, 0, 0);
+  
+  // Add camera look-ahead (looks slightly in front of the snake)
+  if (snake && gameState.playing) {
+    targetPos.addScaledVector(snake.headDir, 1.5);
+  }
+
   const sp = Math.sin(camPol);
   const offset = new THREE.Vector3(
     sp * Math.cos(camAz) * camDist,
@@ -182,8 +190,24 @@ function updateCamera(dt) {
     sp * Math.sin(camAz) * camDist
   );
 
-  camera.position.lerp(targetPos.clone().add(offset), 0.1);
+  // Smoothly lerp the camera position to follow
+  camera.position.lerp(targetPos.clone().add(offset), 1 - Math.exp(-10 * dt));
   camera.lookAt(targetPos);
+
+  // --- Camera Banking (Roll) based on turning ---
+  let targetRoll = 0;
+  if (snake) {
+    // If steering left/right, tilt the camera slightly
+    const steer = getSteer();
+    targetRoll = steer * -0.15; // Tilt up to ~8 degrees
+  }
+  camera.rotation.z += (targetRoll - camera.rotation.z) * (1 - Math.exp(-6 * dt));
+
+  // --- Dynamic FOV for Speed ---
+  let targetFov = 58;
+  if (getBoost()) targetFov = 75; // Zoom out when boosting
+  camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-5 * dt));
+  camera.updateProjectionMatrix();
 }
 
 canvas.addEventListener("pointerdown", e => {
