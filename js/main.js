@@ -1,5 +1,5 @@
 import * as THREE from "../three/three.module.js";
-import { scene, world, camera, renderer, 50, envRefs, fitCamera } from "./render/scene.js";
+import { scene, world, camera, renderer, envRefs, fitCamera } from "./render/scene.js";
 import { gameState, resetGameState, addScore } from "./game/gameState.js";
 import { Snake } from "./game/snake.js";
 import { EnemySnake } from "./game/enemy.js";
