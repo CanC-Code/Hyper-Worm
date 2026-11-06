@@ -6,6 +6,8 @@ export class Food {
     this.sphereRadius = sphereRadius;
     this.pos = new THREE.Vector3(0, sphereRadius, 0);
     this.age = 0;
+    this.type = "normal"; // "normal", "shield", "magnet"
+    
     this.core = new THREE.Mesh(
       new THREE.IcosahedronGeometry(0.55, 1),
       new THREE.MeshBasicMaterial({ color: 0xff2fd0, toneMapped: false })
@@ -19,7 +21,16 @@ export class Food {
     this.group.add(this.core, this.glow);
   }
 
-  spawn(headPos) {
+  spawn(headPos, forceType = null) {
+    this.type = forceType || (Math.random() < 0.1 ? (Math.random() < 0.5 ? "shield" : "magnet") : "normal");
+    
+    let col = new THREE.Color(0xff2fd0);
+    if (this.type === "shield") col.setHex(0x22e6ff);
+    if (this.type === "magnet") col.setHex(0xffdc32);
+
+    this.core.material.color.copy(col);
+    this.glow.material.color.copy(col);
+
     const minDist = this.sphereRadius * 0.8;
     for (let i = 0; i < 40; i++) {
       const u = Math.random() * 2 - 1;
@@ -28,9 +39,6 @@ export class Food {
       const p = new THREE.Vector3(s*Math.cos(t), u, s*Math.sin(t)).multiplyScalar(this.sphereRadius);
       if (p.distanceTo(headPos) > minDist) {
         this.pos.copy(p);
-        const col = new THREE.Color().setHSL(Math.random(), 1, 0.6);
-        this.core.material.color.copy(col);
-        this.glow.material.color.copy(col);
         this.age = 0;
         return;
       }

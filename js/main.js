@@ -3,10 +3,12 @@ import { scene, world, camera, renderer, SPHERE_RADIUS, envRefs, fitCamera } fro
 import { gameState, resetGameState, addScore } from "./game/gameState.js";
 import { Snake } from "./game/snake.js";
 import { EnemySnake } from "./game/enemy.js";
+import { AudioEngine } from "./render/audio.js";
 import { Food } from "./game/food.js";
 import { inputState, initTouchControls, getSteer, getBoost, getOrbit } from "./input/touchControls.js";
 import { showRestartMenu, hideRestartMenu } from "./game/restartMenu.js";
 
+const audio = new AudioEngine();
 let snake = null;
 let enemies = [];
 let respawnTimers = [];
@@ -78,6 +80,7 @@ function initGame() {
 }
 
 function startGame() {
+  audio.init();
   initGame();
   gameState.playing = true;
   gameState.over = false;
@@ -154,6 +157,7 @@ function pauseGame() {
 }
 
 function gameOver() {
+  audio.die();
   gameState.playing = false;
   gameState.over = true;
   document.body.classList.remove("playing");
@@ -405,15 +409,38 @@ function loop(now) {
     gameState.segCount = snake.segCount;
 
     if (food.checkEaten(snake.headPosition())) {
-      addScore(10);
-      snake.grow(2);
       snake.bite();
+      
+      if (food.type === "shield") {
+        snake.hasShield = 5.0; // 5 seconds of shield
+        audio.powerup();
+      } else if (food.type === "magnet") {
+        snake.hasMagnet = 5.0;
+        audio.powerup();
+      } else {
+        addScore(10);
+        snake.grow(2);
+        audio.eat();
+      }
+      
       food.spawn(snake.headPosition());
       flashScreen();
       updateHUD();
       
       if (gameState.score >= gameState.nextStageScore) {
         triggerStageChange();
+      }
+    }
+
+    // Tick Powerup Timers
+    if (snake.hasShield > 0) snake.hasShield -= dt;
+    if (snake.hasMagnet > 0) snake.hasMagnet -= dt;
+    
+    // Magnet Pull effect
+    if (snake.hasMagnet > 0) {
+      const dist = food.pos.distanceTo(snake.headPosition());
+      if (dist < 10) {
+        food.pos.lerp(snake.headPosition(), 5 * dt);
       }
     }
 
@@ -465,7 +492,7 @@ function loop(now) {
              enemyDeathDrop(enemy, 10);
              world.remove(enemy.object3D); enemies.splice(i, 1);
              respawnTimers.push(3.0);
-         } else if (snake.segCount < enemy.segCount) {
+         } else if (snake.hasShield > 0) { /* Ignore damage */ } else if (snake.segCount < enemy.segCount) {
              playerDied = true; break;
          } else {
              enemyDeathDrop(enemy, 10);
