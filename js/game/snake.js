@@ -35,7 +35,7 @@ function createScaleNormalMap() {
 const SCALE_NORMAL_MAP = createScaleNormalMap();
 
 export class Snake {
-  constructor({ sphereRadius, segmentLength = 0.25, initialSegments = 12,
+  constructor({ sphereRadius, segmentLength = 0.4, initialSegments = 12,
                 radius = 0.45, taper = 0.55, speed = 4.5 }) {
     
     this.segmentLength = segmentLength;
@@ -314,7 +314,7 @@ export class Snake {
           const r = this.radius * (1 - k * this.taper);
           
           // Stretch the capsule seamlessly along the path
-          mesh.scale.set(r, r, r * 0.8); 
+          mesh.scale.set(r, r, r * 1.5); 
           
           const forward = b.clone().sub(a).normalize();
           const up = new THREE.Vector3(0, 1, 0);

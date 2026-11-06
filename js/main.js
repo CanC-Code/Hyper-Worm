@@ -1,5 +1,5 @@
 import * as THREE from "../three/three.module.js";
-import { scene, world, camera, renderer, envRefs, fitCamera } from "./render/scene.js";
+import { scene, world, camera, renderer, envRefs, fitCamera, pillars } from "./render/scene.js";
 import { gameState, resetGameState, addScore } from "./game/gameState.js";
 import { Snake } from "./game/snake.js";
 import { EnemySnake } from "./game/enemy.js";
@@ -17,7 +17,7 @@ let food = null;
 let lastTime = performance.now();
 let dragState = null;
 
-let camAz = 0, camPol = Math.PI / 2 - 0.2, camDist = 12;
+let camAz = 0, camPol = Math.PI / 2 - 0.45, camDist = 22;
 let camTargetAz = camAz, camTargetPol = camPol, camTargetDist = camDist;
 let idleTime = 0;
 let targetFov = 58;
@@ -162,16 +162,16 @@ function gameOver() {
 function updateCamera(dt) {
   idleTime += dt;
   
-  // Auto-align camera behind the snake's direction
-  if (snake && !dragState && idleTime > 1.5) {
+  // Auto-align camera behind the snake
+  if (snake && !dragState && idleTime > 1.0) {
     const targetAz = Math.atan2(snake.headDir.x, snake.headDir.z) + Math.PI;
     let diff = targetAz - camTargetAz;
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
-    camTargetAz += diff * 2.0 * dt;
+    camTargetAz += diff * 3.0 * dt; // Fast alignment for racing feel
   }
 
-  const k = 1 - Math.exp(-8 * dt);
+  const k = 1 - Math.exp(-10 * dt);
   camAz   += (camTargetAz   - camAz)   * k;
   camPol  += (camTargetPol  - camPol)  * k;
   camDist += (camTargetDist - camDist) * k;
@@ -185,12 +185,13 @@ function updateCamera(dt) {
     sp * Math.sin(camAz) * camDist
   );
 
-  camera.position.lerp(targetPos.clone().add(offset), 1 - Math.exp(-10 * dt));
+  // Smooth camera tracking
+  camera.position.lerp(targetPos.clone().add(offset), 1 - Math.exp(-8 * dt));
   
-  // Look ahead into the horizon
+  // Look far ahead into the horizon
   const lookTarget = targetPos.clone();
-  if (snake) lookTarget.add(snake.headDir.clone().multiplyScalar(8));
-  lookTarget.y += 1.5;
+  if (snake) lookTarget.add(snake.headDir.clone().multiplyScalar(15));
+  lookTarget.y += 2;
   camera.lookAt(lookTarget);
 }
 
@@ -401,9 +402,7 @@ function loop(now) {
       }
     }
 
-    if (Math.abs(snake.headPos.x) > 48 || Math.abs(snake.headPos.z) > 48) {
-      gameOver(); // Hit the neon wall
-    }
+    
     if (snake.checkSelfCollision()) gameOver();
 
     // Handle Respawn Timers
@@ -535,6 +534,21 @@ function loop(now) {
   }
   if (envRefs.wire) {
     envRefs.wire.rotation.y += dt * 0.02;
+  }
+
+  // Endless World: Recycle pillars
+  if (snake) {
+    pillars.forEach(p => {
+      const dist = p.mesh.position.distanceTo(snake.headPos);
+      if (dist > 200) {
+        // Teleport the pillar ahead of the player
+        p.mesh.position.x = snake.headPos.x + (Math.random() - 0.5) * 250;
+        p.mesh.position.z = snake.headPos.z + (Math.random() - 0.5) * 250;
+      }
+    });
+    // Snap the grid to the player to create an illusion of infinite movement
+    envRefs.wire.position.x = Math.floor(snake.headPos.x / 10) * 10;
+    envRefs.wire.position.z = Math.floor(snake.headPos.z / 10) * 10;
   }
 
   renderer.render(scene, camera);

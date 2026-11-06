@@ -1,7 +1,7 @@
 import * as THREE from "../../three/three.module.js";
 
 export const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x07011a, 0.015); // Thicker fog for depth
+scene.fog = new THREE.FogExp2(0x07011a, 0.03); // Thicker fog for endless horizon
 
 export const world = new THREE.Group();
 scene.add(world);
@@ -14,20 +14,13 @@ export const renderer = new THREE.WebGLRenderer({
 renderer.setClearAlpha(0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.id = "scene";
 document.body.appendChild(renderer.domElement);
 
 // Lighting
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
 dirLight.position.set(20, 50, 20);
-dirLight.castShadow = true;
-dirLight.shadow.camera.top = 50;
-dirLight.shadow.camera.bottom = -50;
-dirLight.shadow.camera.left = -50;
-dirLight.shadow.camera.right = 50;
 scene.add(dirLight);
 
 function makeGlowTexture() {
@@ -46,67 +39,45 @@ function makeGlowTexture() {
 }
 export const GLOW_TEX = makeGlowTexture();
 
-export const ARENA_SIZE = 100;
-
-// Add 3D Obstacles to create depth and speed
-for (let i = 0; i < 80; i++) {
-  const w = 2 + Math.random() * 4;
-  const h = 10 + Math.random() * 30;
-  const d = 2 + Math.random() * 4;
-  const geo = new THREE.BoxGeometry(w, h, d);
-  const mat = new THREE.MeshStandardMaterial({ 
-    color: 0x050510, 
-    metalness: 0.9, 
-    roughness: 0.1,
-    emissive: 0x22e6ff,
-    emissiveIntensity: 0.1
-  });
-  const mesh = new THREE.Mesh(geo, mat);
-  let x, z;
-  do {
-    x = (Math.random() - 0.5) * 150;
-    z = (Math.random() - 0.5) * 150;
-  } while (Math.abs(x) < 20 && Math.abs(z) < 20); // Keep spawn clear
-  
-  mesh.position.set(x, h/2, z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  world.add(mesh);
-}
- // 100x100 arena
-
-// Floor
-const floorGeo = new THREE.PlaneGeometry(ARENA_SIZE, ARENA_SIZE);
-const floorMat = new THREE.MeshStandardMaterial({ 
-  color: 0x050510, metalness: 0.8, roughness: 0.4 
-});
+// Massive Floor
+const floorGeo = new THREE.PlaneGeometry(2000, 2000);
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x050510, metalness: 0.8, roughness: 0.5 });
 const floor = new THREE.Mesh(floorGeo, floorMat);
 floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
 world.add(floor);
 
-// Neon Grid
-const gridHelper = new THREE.GridHelper(ARENA_SIZE, 50, 0x22e6ff, 0x8a5cff);
+// Infinite Grid
+const gridHelper = new THREE.GridHelper(2000, 200, 0x22e6ff, 0x8a5cff);
 gridHelper.position.y = 0.01;
 world.add(gridHelper);
 
-// Deadly Boundary Walls
-const wallMat = new THREE.MeshBasicMaterial({ 
-  color: 0xff2fd0, transparent: true, opacity: 0.3, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
-});
-const wallGeo = new THREE.PlaneGeometry(ARENA_SIZE, 5);
-const wallN = new THREE.Mesh(wallGeo, wallMat); wallN.position.set(0, 2.5, -ARENA_SIZE/2); world.add(wallN);
-const wallS = new THREE.Mesh(wallGeo, wallMat); wallS.position.set(0, 2.5, ARENA_SIZE/2); world.add(wallS);
-const wallE = new THREE.Mesh(wallGeo, wallMat); wallE.rotation.y = Math.PI/2; wallE.position.set(ARENA_SIZE/2, 2.5, 0); world.add(wallE);
-const wallW = new THREE.Mesh(wallGeo, wallMat); wallW.rotation.y = Math.PI/2; wallW.position.set(-ARENA_SIZE/2, 2.5, 0); world.add(wallW);
+// Endless Environment (Wireframe Data Towers)
+export const pillars = [];
+for (let i = 0; i < 60; i++) {
+  const w = 2 + Math.random() * 4;
+  const h = 15 + Math.random() * 40;
+  const d = 2 + Math.random() * 4;
+  const geo = new THREE.BoxGeometry(w, h, d);
+  // Wireframe material lets you see through them (no more blocking camera)
+  const mat = new THREE.MeshBasicMaterial({ 
+    color: 0x22e6ff, 
+    wireframe: true, 
+    transparent: true, 
+    opacity: 0.15 
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set((Math.random() - 0.5) * 300, h/2, (Math.random() - 0.5) * 300);
+  world.add(mesh);
+  pillars.push({ mesh, h, w, d });
+}
 
 (function stars() {
   const N = 1400;
   const pos = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) {
-    pos[i*3] = (Math.random() - 0.5) * 400;
-    pos[i*3+1] = Math.random() * 100 + 10;
-    pos[i*3+2] = (Math.random() - 0.5) * 400;
+    pos[i*3] = (Math.random() - 0.5) * 600;
+    pos[i*3+1] = Math.random() * 150 + 10;
+    pos[i*3+2] = (Math.random() - 0.5) * 600;
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
@@ -115,14 +86,14 @@ const wallW = new THREE.Mesh(wallGeo, wallMat); wallW.rotation.y = Math.PI/2; wa
   })));
 })();
 
-export const envRefs = { wire: gridHelper, rings: [], hexMat: null };
+export const envRefs = { wire: gridHelper, rings: [] };
 
 export function fitCamera() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  camera.fov = w / h < 1 ? Math.min(82, 58 + (1 - (w/h)) * 34) : 58;
+  camera.fov = w / h < 1 ? 75 : 60;
   camera.updateProjectionMatrix();
 }
 window.addEventListener("resize", fitCamera);
