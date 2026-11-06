@@ -532,8 +532,10 @@ function loop(now) {
 
   updateCamera(dt);
 
-  envRefs.atmo.material.uniforms.uStrength.value = 0.75 + 0.12 * Math.sin(gameState.time * 1.3);
-  envRefs.wire.material.opacity = 0.10 + 0.05 * Math.sin(gameState.time * 0.9 + 1.0);
+  // Pulse the neon grid
+  if (envRefs.wire) {
+    envRefs.wire.material.opacity = 0.5 + 0.2 * Math.sin(gameState.time * 2.0);
+  }
 
   drawMinimap();
   // Animate environment
