@@ -563,6 +563,18 @@ function loop(now) {
   envRefs.wire.material.opacity = 0.10 + 0.05 * Math.sin(gameState.time * 0.9 + 1.0);
 
   drawMinimap();
+  // Animate environment
+  gameState.time += dt;
+  if (envRefs.rings) {
+    envRefs.rings.forEach((r, i) => {
+      r.rotation.z += dt * (0.5 + i * 0.2);
+      r.rotation.x += dt * 0.1;
+    });
+  }
+  if (envRefs.wire) {
+    envRefs.wire.rotation.y += dt * 0.02;
+  }
+
   renderer.render(scene, camera);
 }
 

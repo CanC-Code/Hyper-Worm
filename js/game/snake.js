@@ -3,39 +3,15 @@ import { GLOW_TEX } from "../render/scene.js";
 
 const MAX_SEGMENTS = 100;
 
-function createScaleTexture() {
-  const c = document.createElement("canvas");
-  c.width = 128; c.height = 128;
-  const ctx = c.getContext("2d");
-  ctx.fillStyle = "#444"; ctx.fillRect(0, 0, 128, 128);
-  ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
-  for (let y = 0; y < 128; y += 16) {
-    for (let x = 0; x < 128; x += 16) {
-      ctx.beginPath();
-      const offset = (y % 32 === 0) ? 8 : 0;
-      ctx.arc(x + offset, y, 10, 0, Math.PI);
-      ctx.stroke();
-    }
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(4, 4);
-  return tex;
-}
-const SCALE_TEX = createScaleTexture();
-
 // Custom Shader for Liquid Neon look (Fresnel Glow)
 const snakeMaterial = new THREE.ShaderMaterial({
   uniforms: {
-    uColor: { value: new THREE.Color(0x22e6ff) },
-    uScaleTex: { value: SCALE_TEX }
+    uColor: { value: new THREE.Color(0x22e6ff) }
   },
   vertexShader: `
     varying vec3 vNormal;
     varying vec3 vViewPosition;
-    varying vec2 vUv;
     void main() {
-      vUv = uv;
       vNormal = normalize(normalMatrix * normal);
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
@@ -44,21 +20,14 @@ const snakeMaterial = new THREE.ShaderMaterial({
   `,
   fragmentShader: `
     uniform vec3 uColor;
-    uniform sampler2D uScaleTex;
     varying vec3 vNormal;
     varying vec3 vViewPosition;
-    varying vec2 vUv;
     void main() {
       float fresnel = dot(normalize(vNormal), normalize(vViewPosition));
-      fresnel = pow(1.0 - fresnel, 2.5); // Edge glow
-      
-      // Sample the scale texture for subtle bump/darkening
-      float scaleDark = texture2D(uScaleTex, vUv).r * 0.3;
-      
-      vec3 baseColor = uColor * 0.2; // Dark center
-      vec3 glowColor = uColor * 2.5; // Bright edges
-      
-      vec3 finalColor = mix(baseColor, glowColor, fresnel + scaleDark);
+      fresnel = pow(1.0 - fresnel, 2.0);
+      vec3 baseColor = uColor * 0.1;
+      vec3 glowColor = uColor * 3.0;
+      vec3 finalColor = mix(baseColor, glowColor, fresnel);
       gl_FragColor = vec4(finalColor, 1.0);
     }
   `
@@ -66,7 +35,7 @@ const snakeMaterial = new THREE.ShaderMaterial({
 
 export class Snake {
   constructor({ sphereRadius, segmentLength = 0.35, initialSegments = 12,
-                radius = 0.4, taper = 0.55, speed = 4.5 }) {
+                radius = 0.45, taper = 0.55, speed = 4.5 }) {
     this.sphereRadius = sphereRadius;
     this.segmentLength = segmentLength;
     this.radius = radius;
@@ -77,6 +46,7 @@ export class Snake {
     this.time = 0;
     this.hue = 0.55;
     this.biteTimer = 0;
+    this.hasShield = 0;
 
     this.headPos = new THREE.Vector3(0, sphereRadius, 0);
     this.headDir = new THREE.Vector3(1, 0, 0);
@@ -89,71 +59,57 @@ export class Snake {
     this.targetSegCount = initialSegments;
     this.object3D = new THREE.Group();
 
-    // --- BUILD THE HEAD ---
+    // --- CYBER-VIPER HEAD ---
     this.headGroup = new THREE.Group();
-    this.headGroup.position.copy(this.headPos);
     
-    // Skull (Pointed snout)
-    this.skull = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.4, 8), snakeMaterial);
-    this.skull.rotation.x = Math.PI / 2; // Point forward
+    // Upper Skull (Spade shape)
+    const skullGeo = new THREE.SphereGeometry(0.6, 16, 16);
+    skullGeo.scale(1.2, 0.6, 2.0);
+    this.skull = new THREE.Mesh(skullGeo, snakeMaterial);
     this.skull.position.z = 0.3;
     this.headGroup.add(this.skull);
 
-    // Lower Jaw (Pivoted)
+    // Lower Jaw
     this.jaw = new THREE.Group();
-    this.jaw.position.set(0, -0.1, 0.1); 
-    const jawMesh = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 8), snakeMaterial);
-    jawMesh.rotation.x = Math.PI / 2;
-    jawMesh.position.z = 0.25;
+    this.jaw.position.set(0, -0.15, 0.1);
+    const jawGeo = new THREE.SphereGeometry(0.5, 16, 16);
+    jawGeo.scale(1.0, 0.3, 1.8);
+    const jawMesh = new THREE.Mesh(jawGeo, snakeMaterial);
+    jawMesh.position.z = 0.2;
     this.jaw.add(jawMesh);
     
-    // Glowing Mouth Interior
+    // Glowing Mouth
     const mouthMat = new THREE.MeshBasicMaterial({ color: 0xff2fd0 });
-    const mouthGeo = new THREE.SphereGeometry(0.25, 8, 8);
-    mouthGeo.scale(0.8, 0.2, 1.2);
+    const mouthGeo = new THREE.SphereGeometry(0.4, 8, 8);
+    mouthGeo.scale(0.9, 0.15, 1.5);
     const mouth = new THREE.Mesh(mouthGeo, mouthMat);
-    mouth.position.set(0, 0.05, 0.3);
+    mouth.position.set(0, 0.05, 0.2);
     this.jaw.add(mouth);
     this.headGroup.add(this.jaw);
 
-    // Reptilian Eyes
-    const eyeWhite = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const eyePupil = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const eyeGeo = new THREE.SphereGeometry(0.12, 8, 8);
-    const pupilGeo = new THREE.SphereGeometry(0.06, 8, 8);
-    
-    const eL = new THREE.Mesh(eyeGeo, eyeWhite); eL.position.set(-0.25, 0.15, 0.4);
-    const eLp = new THREE.Mesh(pupilGeo, eyePupil); eLp.position.set(-0.28, 0.15, 0.45);
-    const eR = new THREE.Mesh(eyeGeo, eyeWhite); eR.position.set(0.25, 0.15, 0.4);
-    const eRp = new THREE.Mesh(pupilGeo, eyePupil); eRp.position.set(0.28, 0.15, 0.45);
-    this.headGroup.add(eL, eLp, eR, eRp);
+    // Eyes
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const eyeGeo = new THREE.SphereGeometry(0.1, 8, 8);
+    const eL = new THREE.Mesh(eyeGeo, eyeMat); eL.position.set(-0.4, 0.2, 0.4);
+    const eR = new THREE.Mesh(eyeGeo, eyeMat); eR.position.set(0.4, 0.2, 0.4);
+    this.headGroup.add(eL, eR);
 
     this.object3D.add(this.headGroup);
 
+    // Head Glow
     this.headGlow = new THREE.Sprite(new THREE.SpriteMaterial({
       map: GLOW_TEX, color: 0x9ff6ff, blending: THREE.AdditiveBlending,
       transparent: true, depthWrite: false, opacity: 0.9
     }));
-    this.headGlow.scale.setScalar(3.0);
+    this.headGlow.scale.setScalar(3.5);
     this.object3D.add(this.headGlow);
 
-    // --- BUILD THE BODY ---
-    this.segGeo = new THREE.SphereGeometry(1, 16, 16);
-    this.segGeo.scale(1, 0.8, 1.4);
+    // --- SMOOTH BODY ---
+    // Using a cylinder that points down the Z axis, stretched later
+    this.segGeo = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true);
+    this.segGeo.rotateX(Math.PI / 2); // Point down Z
+    this.segGeo.translate(0, 0, 0.5); // Origin at one end
     this.initSegments();
-
-    // Glow Points
-    this.glowPositions = new Float32Array(MAX_SEGMENTS * 3);
-    this.glowColors    = new Float32Array(MAX_SEGMENTS * 3);
-    this.glowGeo = new THREE.BufferGeometry();
-    this.glowGeo.setAttribute("position", new THREE.BufferAttribute(this.glowPositions, 3));
-    this.glowGeo.setAttribute("color",    new THREE.BufferAttribute(this.glowColors, 3));
-    this.glowPoints = new THREE.Points(this.glowGeo, new THREE.PointsMaterial({
-      size: 1.4, map: GLOW_TEX, vertexColors: true,
-      transparent: true, blending: THREE.AdditiveBlending,
-      depthWrite: false, sizeAttenuation: true, opacity: 0.75
-    }));
-    this.object3D.add(this.glowPoints);
 
     this.seedTrail();
     this.updateSegments();
@@ -170,7 +126,7 @@ export class Snake {
     }
   }
 
-  bite() { this.biteTimer = 0.35; }
+  bite() { this.biteTimer = 0.3; }
 
   seedTrail() {
     this.trail.length = 0;
@@ -200,7 +156,7 @@ export class Snake {
   }
 
   addTrailPoint(pos) {
-    if (this.trail.length > 0 && this.trail[0].distanceToSquared(pos) < 0.0004) return;
+    if (this.trail.length > 0 && this.trail[0].distanceToSquared(pos) < 0.001) return;
     this.trail.unshift(pos.clone());
     const maxLen = this.targetSegCount * this.segmentLength + 10;
     let acc = 0;
@@ -212,12 +168,12 @@ export class Snake {
 
   update(dt, turnInput, boost) {
     this.time += dt;
-    this.hue = (this.hue + dt * 0.05) % 1;
+    this.hue = (this.hue + dt * 0.1) % 1;
 
     if (this.biteTimer > 0) {
       this.biteTimer -= dt;
-      const t = Math.max(0, this.biteTimer / 0.35);
-      this.jaw.rotation.x = Math.sin(t * Math.PI) * 0.9;
+      const t = Math.max(0, this.biteTimer / 0.3);
+      this.jaw.rotation.x = Math.sin(t * Math.PI) * 1.1;
     } else {
       this.jaw.rotation.x = 0;
     }
@@ -250,24 +206,27 @@ export class Snake {
     this.updateSegments();
 
     const up = this.headPos.clone().normalize();
-    this.headGroup.position.copy(this.headPos).add(up.clone().multiplyScalar(0.1));
+    this.headGroup.position.copy(this.headPos);
     
-    // Smooth Head Rotation
     const forward = this.headDir.clone();
     const right = new THREE.Vector3().crossVectors(forward, up).normalize();
     const correctedForward = new THREE.Vector3().crossVectors(up, right).normalize();
     const m = new THREE.Matrix4().makeBasis(right, up, correctedForward);
     const targetQ = new THREE.Quaternion().setFromRotationMatrix(m);
-    this.headGroup.quaternion.slerp(targetQ, 1 - Math.exp(-15 * dt));
+    this.headGroup.quaternion.slerp(targetQ, 1 - Math.exp(-20 * dt));
 
-    // Update Colors
     const hue = (this.hue + 0.5) % 1;
     const color = new THREE.Color().setHSL(hue, 1.0, 0.5);
     
-    snakeMaterial.uniforms.uColor.value.copy(color); // Update shader globally
+    if (this.hasShield > 0) {
+      snakeMaterial.uniforms.uColor.value.setHex(0x22e6ff); // Force Cyan for shield
+    } else {
+      snakeMaterial.uniforms.uColor.value.copy(color);
+    }
+    
     this.headGlow.material.color.copy(color);
     this.headGlow.position.copy(this.headPos);
-    this.headGlow.scale.setScalar(3.0 * (1 + 0.1 * Math.sin(this.time * 8)));
+    this.headGlow.scale.setScalar(3.5 * (1 + 0.1 * Math.sin(this.time * 10)));
   }
 
   updateSegments() {
@@ -291,9 +250,13 @@ export class Snake {
           mesh.visible = true;
           mesh.position.copy(p);
           
+          // STRETCH THE CYLINDER TO BRIDGE THE GAP
+          const nextP = this.trail[Math.min(trailIdx + 2, trailLen - 1)];
+          const stretch = p.distanceTo(nextP) * 1.5;
+          
           const k = s / Math.max(n, 1);
           const r = this.radius * (1 - k * this.taper);
-          mesh.scale.setScalar(r * 1.2 * (1 + 0.08 * Math.sin(this.time * 7 - s * 0.55)));
+          mesh.scale.set(r, r, stretch + 0.1); // Stretch Z
           
           const forward = b.clone().sub(a).normalize();
           const up = p.clone().normalize();
@@ -301,28 +264,18 @@ export class Snake {
           const correctedForward = new THREE.Vector3().crossVectors(up, right).normalize();
           const m = new THREE.Matrix4().makeBasis(right, up, correctedForward);
           mesh.quaternion.setFromRotationMatrix(m);
-
-          this.glowPositions[s*3] = p.x;
-          this.glowPositions[s*3+1] = p.y;
-          this.glowPositions[s*3+2] = p.z;
-          this.glowColors[s*3] = 1; this.glowColors[s*3+1] = 1; this.glowColors[s*3+2] = 1;
+          
           placed = true;
           break;
         }
         arc += segLen;
         trailIdx++;
       }
-      if (!placed) {
-        this.segments[s].visible = false;
-        this.glowPositions[s*3] = 0; this.glowPositions[s*3+1] = 0; this.glowPositions[s*3+2] = 0;
-      }
+      if (!placed) this.segments[s].visible = false;
     }
     for (let s = n; s < MAX_SEGMENTS; s++) {
       if (this.segments[s].visible) this.segments[s].visible = false;
-      this.glowPositions[s*3] = 0; this.glowPositions[s*3+1] = 0; this.glowPositions[s*3+2] = 0;
     }
-    this.glowGeo.attributes.position.needsUpdate = true;
-    this.glowGeo.attributes.color.needsUpdate = true;
   }
 
   grow(n) { this.targetSegCount = Math.min(MAX_SEGMENTS, this.targetSegCount + n); }
@@ -330,8 +283,9 @@ export class Snake {
   headDirection() { return this.headDir.clone(); }
 
   checkSelfCollision() {
+    if (this.hasShield > 0) return false; // Invincible
     const skip = 10;
-    const threshold = (this.radius * 2.4) ** 2;
+    const threshold = (this.radius * 1.5) ** 2;
     const n = Math.ceil(this.segCount);
     for (let s = skip; s < n; s++) {
       const m = this.segments[s];
