@@ -1,6 +1,10 @@
 import * as THREE from "../../three/three.module.js";
 
 export const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+dirLight.position.set(10, 20, 10);
+scene.add(dirLight);
 scene.fog = new THREE.FogExp2(0x07011a, 0.0085);
 
 export const world = new THREE.Group();
@@ -12,6 +16,8 @@ export const renderer = new THREE.WebGLRenderer({
   antialias: true, alpha: true, powerPreference: "high-performance"
 });
 renderer.setClearAlpha(0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
 if ("outputColorSpace" in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.domElement.id = "scene";
 document.body.appendChild(renderer.domElement);
