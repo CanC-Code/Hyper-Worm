@@ -17,7 +17,7 @@ let food = null;
 let lastTime = performance.now();
 let dragState = null;
 
-let camAz = 0, camPol = Math.PI / 2 - 0.45, camDist = 22;
+let camAz = 0, camPol = 1.05, camDist = 14;
 let camTargetAz = camAz, camTargetPol = camPol, camTargetDist = camDist;
 let idleTime = 0;
 let targetFov = 58;
@@ -162,37 +162,44 @@ function gameOver() {
 function updateCamera(dt) {
   idleTime += dt;
   
-  // Auto-align camera behind the snake
-  if (snake && !dragState && idleTime > 1.0) {
+  // Rigid auto-align: The camera snaps behind the snake's heading
+  if (snake && !dragState) {
     const targetAz = Math.atan2(snake.headDir.x, snake.headDir.z) + Math.PI;
     let diff = targetAz - camTargetAz;
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
-    camTargetAz += diff * 3.0 * dt; // Fast alignment for racing feel
+    // Very fast alignment for racing feel
+    camTargetAz += diff * 8.0 * dt; 
   }
 
-  const k = 1 - Math.exp(-10 * dt);
+  const k = 1 - Math.exp(-12 * dt);
   camAz   += (camTargetAz   - camAz)   * k;
   camPol  += (camTargetPol  - camPol)  * k;
   camDist += (camTargetDist - camDist) * k;
 
   const targetPos = snake ? snake.headPos.clone() : new THREE.Vector3(0, 0, 0);
-  const sp = Math.sin(camPol);
   
+  // Fixed racing angle: 10 units back, 5 units up
+  const sp = Math.sin(camPol);
   const offset = new THREE.Vector3(
     sp * Math.cos(camAz) * camDist,
     Math.cos(camPol) * camDist,
     sp * Math.sin(camAz) * camDist
   );
 
-  // Smooth camera tracking
-  camera.position.lerp(targetPos.clone().add(offset), 1 - Math.exp(-8 * dt));
+  camera.position.lerp(targetPos.clone().add(offset), 1 - Math.exp(-15 * dt));
   
-  // Look far ahead into the horizon
+  // Look directly ahead of the snake (down the horizon)
   const lookTarget = targetPos.clone();
-  if (snake) lookTarget.add(snake.headDir.clone().multiplyScalar(15));
-  lookTarget.y += 2;
+  if (snake) lookTarget.add(snake.headDir.clone().multiplyScalar(12));
+  lookTarget.y += 1.5;
   camera.lookAt(lookTarget);
+
+  // Dynamic FOV when boosting
+  let targetFov = 65;
+  if (getBoost()) targetFov = 85;
+  camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-6 * dt));
+  camera.updateProjectionMatrix();
 }
 
 canvas.addEventListener("pointerdown", e => {

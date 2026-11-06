@@ -39,7 +39,7 @@ export class Snake {
                 radius = 0.45, taper = 0.55, speed = 4.5 }) {
     
     this.segmentLength = segmentLength;
-    this.radius = radius;
+    this.radius = radius * 1.4;
     this.taper = taper;
     this.speed = speed;
     this.turboMultiplier = 1.65;
@@ -63,7 +63,7 @@ export class Snake {
     this.material = new THREE.MeshPhysicalMaterial({
       color: 0x22e6ff,
       emissive: 0x22e6ff,
-      emissiveIntensity: 0.4,
+      emissiveIntensity: 1.5,
       metalness: 0.9,
       roughness: 0.2,
       clearcoat: 1.0,      // Wet look
@@ -76,17 +76,17 @@ export class Snake {
     this.headGroup = new THREE.Group();
     
     // Upper Skull
-    const skullGeo = new THREE.SphereGeometry(0.5, 32, 32);
-    skullGeo.scale(1.0, 0.7, 1.6);
+    const skullGeo = new THREE.SphereGeometry(0.8, 32, 32);
+    skullGeo.scale(1.0, 0.7, 1.8);
     this.skull = new THREE.Mesh(skullGeo, this.material);
     this.skull.position.set(0, 0.1, 0.3);
     this.headGroup.add(this.skull);
 
     // Snout (Angled down slightly)
-    const snoutGeo = new THREE.ConeGeometry(0.4, 0.8, 32);
+    const snoutGeo = new THREE.ConeGeometry(0.65, 1.2, 32);
     snoutGeo.rotateX(Math.PI / 2);
     const snout = new THREE.Mesh(snoutGeo, this.material);
-    snout.position.set(0, 0.05, 0.9);
+    snout.position.set(0, 0.05, 1.2);
     snout.rotation.x = 0.1; 
     this.headGroup.add(snout);
 
@@ -136,13 +136,13 @@ export class Snake {
     // Eyes (Deep set)
     const eyeWhite = new THREE.MeshPhysicalMaterial({ color: 0xffcc00, metalness: 1, roughness: 0.1 });
     const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
-    const pupilGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    const eyeGeo = new THREE.SphereGeometry(0.2, 16, 16);
+    const pupilGeo = new THREE.SphereGeometry(0.1, 8, 8);
     
-    const eL = new THREE.Mesh(eyeGeo, eyeWhite); eL.position.set(-0.35, 0.2, 0.5);
-    const eLp = new THREE.Mesh(pupilGeo, pupilMat); eLp.position.set(-0.4, 0.2, 0.55);
-    const eR = new THREE.Mesh(eyeGeo, eyeWhite); eR.position.set(0.35, 0.2, 0.5);
-    const eRp = new THREE.Mesh(pupilGeo, pupilMat); eRp.position.set(0.4, 0.2, 0.55);
+    const eL = new THREE.Mesh(eyeGeo, eyeWhite); eL.position.set(-0.45, 0.3, 0.6);
+    const eLp = new THREE.Mesh(pupilGeo, pupilMat); eLp.position.set(-0.5, 0.3, 0.7);
+    const eR = new THREE.Mesh(eyeGeo, eyeWhite); eR.position.set(0.45, 0.3, 0.6);
+    const eRp = new THREE.Mesh(pupilGeo, pupilMat); eRp.position.set(0.5, 0.3, 0.7);
     this.headGroup.add(eL, eLp, eR, eRp);
 
     this.object3D.add(this.headGroup);
@@ -160,7 +160,7 @@ export class Snake {
     this.object3D.add(this.headGlow);
 
     // --- CAPSULE BODY ---
-    this.segGeo = new THREE.CapsuleGeometry(1, 1.5, 8, 16);
+    this.segGeo = new THREE.CapsuleGeometry(1.5, 2.2, 8, 16);
     this.segGeo.rotateX(Math.PI / 2); // Point along Z axis
     this.initSegments();
 
