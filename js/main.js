@@ -1,5 +1,5 @@
 import * as THREE from "../three/three.module.js";
-import { scene, world, camera, renderer, SPHERE_RADIUS, envRefs, fitCamera } from "./render/scene.js";
+import { scene, world, camera, renderer, 50, envRefs, fitCamera } from "./render/scene.js";
 import { gameState, resetGameState, addScore } from "./game/gameState.js";
 import { Snake } from "./game/snake.js";
 import { EnemySnake } from "./game/enemy.js";
@@ -17,7 +17,7 @@ let food = null;
 let lastTime = performance.now();
 let dragState = null;
 
-let camAz = 0.9, camPol = 1.05, camDist = SPHERE_RADIUS * 1.8;
+let camAz = 0.9, camPol = 1.05, camDist = 50 * 1.8;
 let camTargetAz = camAz, camTargetPol = camPol, camTargetDist = camDist;
 let idleTime = 0;
 let targetFov = 58;
@@ -50,19 +50,11 @@ function initGame() {
 
   resetGameState();
 
-  const u = Math.random() * 2 - 1;
-  const t = Math.random() * Math.PI * 2;
-  const s = Math.sqrt(1 - u * u);
-  const startPos = new THREE.Vector3(s * Math.cos(t), u, s * Math.sin(t)).multiplyScalar(SPHERE_RADIUS);
-  const u2 = Math.random() * 2 - 1;
-  const t2 = Math.random() * Math.PI * 2;
-  const s2 = Math.sqrt(1 - u2 * u2);
-  const startDir = new THREE.Vector3(s2 * Math.cos(t2), u2, s2 * Math.sin(t2));
-  const n = startPos.clone().normalize();
-  startDir.addScaledVector(n, -startDir.dot(n)).normalize();
+  const startPos = new THREE.Vector3((Math.random() - 0.5) * 40, 0.5, (Math.random() - 0.5) * 40);
+  const startDir = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
 
   snake = new Snake({
-    sphereRadius: SPHERE_RADIUS,
+    sphereRadius: 50,
     segmentLength: 0.5,
     initialSegments: 12,
     radius: 0.4,
@@ -72,7 +64,7 @@ function initGame() {
   snake.setHeading(startPos, startDir);
   world.add(snake.object3D);
 
-  food = new Food(SPHERE_RADIUS);
+  food = new Food(50);
   food.spawn(snake.headPosition());
   world.add(food.group);
 
@@ -123,18 +115,15 @@ function triggerStageChange() {
 }
 
 function spawnRival() {
-  const u = Math.random() * 2 - 1;
-  const t = Math.random() * Math.PI * 2;
-  const s = Math.sqrt(1 - u * u);
-  const ePos = new THREE.Vector3(s * Math.cos(t), u, s * Math.sin(t)).multiplyScalar(SPHERE_RADIUS);
+  const ePos = new THREE.Vector3((Math.random() - 0.5) * 80, 0.5, (Math.random() - 0.5) * 80);
   
   // Spawn them far away from the player
-  if (snake && ePos.distanceTo(snake.headPosition()) < SPHERE_RADIUS * 0.8) {
+  if (snake && ePos.distanceTo(snake.headPosition()) < 50 * 0.8) {
       ePos.negate(); 
   }
 
   const newEnemy = new EnemySnake({
-    sphereRadius: SPHERE_RADIUS, segmentLength: 0.5, initialSegments: 15,
+    sphereRadius: 50, segmentLength: 0.5, initialSegments: 15,
     radius: 0.45, taper: 0.55, speed: 4.8
   });
   
@@ -180,24 +169,19 @@ function updateCamera(dt) {
   camDist += (camTargetDist - camDist) * k;
 
   const targetPos = snake ? snake.headPos.clone() : new THREE.Vector3(0, 0, 0);
-  const sp = Math.sin(camPol);
   
-  // The offset is calculated relative to the camera's polar angle
+  // Third person follow camera
+  const sp = Math.sin(camPol);
   const offset = new THREE.Vector3(
     sp * Math.cos(camAz) * camDist,
     Math.cos(camPol) * camDist,
     sp * Math.sin(camAz) * camDist
   );
 
-  // Smoothly move to the new position
   camera.position.lerp(targetPos.clone().add(offset), 1 - Math.exp(-10 * dt));
-
-  // Lock the camera's UP vector to the normal of the sphere at the snake's location
-  // This prevents the camera from flipping upside down or glitching at the poles
-  const normal = targetPos.clone().normalize();
-  camera.up.copy(normal);
   
-  camera.lookAt(targetPos);
+  // Always look slightly above the snake
+  camera.lookAt(targetPos.x, targetPos.y + 1.5, targetPos.z);
 }
 
 canvas.addEventListener("pointerdown", e => {
@@ -224,8 +208,8 @@ canvas.addEventListener("wheel", e => {
   e.preventDefault();
   camTargetDist = THREE.MathUtils.clamp(
     camTargetDist * (1 + Math.sign(e.deltaY) * 0.12),
-    SPHERE_RADIUS * 1.2,
-    SPHERE_RADIUS * 4.0
+    50 * 1.2,
+    50 * 4.0
   );
 }, { passive: false });
 canvas.addEventListener("contextmenu", e => e.preventDefault());
@@ -253,7 +237,7 @@ function enemyDeathDrop(enemy, hitIndex) {
   for (let i = 0; i < dropCount; i++) {
     const p = enemy.segments[hitIndex + i]?.position;
     if (p) {
-      const newFood = new Food(SPHERE_RADIUS);
+      const newFood = new Food(50);
       newFood.pos.copy(p);
       newFood.core.material.color.setHex(0xff0000);
       newFood.glow.material.color.setHex(0xff0000);
@@ -291,7 +275,7 @@ function handleBite(biter, bitten, hitIndex) {
 
   const spawnEnemy = (length, dir) => {
     const newEnemy = new EnemySnake({
-      sphereRadius: SPHERE_RADIUS, segmentLength: 0.5, initialSegments: length,
+      sphereRadius: 50, segmentLength: 0.5, initialSegments: length,
       radius: 0.45, taper: 0.55, speed: 4.8
     });
     newEnemy.setHeading(spawnPos, dir);
@@ -430,6 +414,9 @@ function loop(now) {
       }
     }
 
+    if (Math.abs(snake.headPos.x) > 48 || Math.abs(snake.headPos.z) > 48) {
+      gameOver(); // Hit the neon wall
+    }
     if (snake.checkSelfCollision()) gameOver();
 
     // Handle Respawn Timers

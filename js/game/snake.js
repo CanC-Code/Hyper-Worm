@@ -37,7 +37,7 @@ const SCALE_NORMAL_MAP = createScaleNormalMap();
 export class Snake {
   constructor({ sphereRadius, segmentLength = 0.25, initialSegments = 12,
                 radius = 0.45, taper = 0.55, speed = 4.5 }) {
-    this.sphereRadius = sphereRadius;
+    
     this.segmentLength = segmentLength;
     this.radius = radius;
     this.taper = taper;
@@ -51,8 +51,7 @@ export class Snake {
 
     this.headPos = new THREE.Vector3(0, sphereRadius, 0);
     this.headDir = new THREE.Vector3(1, 0, 0);
-    { const n = this.headPos.clone().normalize();
-      this.headDir.addScaledVector(n, -this.headDir.dot(n)).normalize(); }
+    {  }
 
     this.trail = [];
     this.segments = [];
@@ -192,7 +191,7 @@ export class Snake {
     const steps = Math.ceil((MAX_SEGMENTS * this.segmentLength + 12) / 0.08);
     for (let i = 0; i < steps; i++) {
       const next = bp.clone().addScaledVector(bd, 0.08);
-      next.normalize().multiplyScalar(this.sphereRadius);
+      next.y = 0.5;
       const n = next.clone().normalize();
       bd.copy(next).sub(bp).normalize();
       bd.addScaledVector(n, -bd.dot(n)).normalize();
@@ -202,7 +201,7 @@ export class Snake {
   }
 
   setHeading(pos, dir) {
-    this.headPos.copy(pos).normalize().multiplyScalar(this.sphereRadius);
+    this.headPos.copy(pos); this.headPos.y = 0.5;
     this.headDir.copy(dir);
     const n = this.headPos.clone().normalize();
     this.headDir.addScaledVector(n, -this.headDir.dot(n)).normalize();
@@ -241,21 +240,17 @@ export class Snake {
     }
 
     if (turnInput !== 0) {
-      const n = this.headPos.clone().normalize();
-      const q = new THREE.Quaternion().setFromAxisAngle(n, -turnInput * this.turnRate * dt);
+      const up = new THREE.Vector3(0, 1, 0);
+      const q = new THREE.Quaternion().setFromAxisAngle(up, -turnInput * this.turnRate * dt);
       this.headDir.applyQuaternion(q);
     }
-    { const n = this.headPos.clone().normalize();
-      this.headDir.addScaledVector(n, -this.headDir.dot(n)).normalize(); }
+    {  }
 
     const speed = this.speed * (boost ? this.turboMultiplier : 1);
     const next = this.headPos.clone().addScaledVector(this.headDir, speed * dt);
-    next.normalize().multiplyScalar(this.sphereRadius);
+    next.y = 0.5;
 
-    { const nd = next.clone().sub(this.headPos).normalize();
-      const nn = next.clone().normalize();
-      nd.addScaledVector(nn, -nd.dot(nn)).normalize();
-      this.headDir.copy(nd); }
+    this.headDir.copy(next).sub(this.headPos).normalize();
     this.headPos.copy(next);
 
     this.addTrailPoint(this.headPos);
@@ -267,9 +262,8 @@ export class Snake {
 
     this.updateSegments();
 
-    const up = this.headPos.clone().normalize();
     this.headGroup.position.copy(this.headPos);
-    
+    const up = new THREE.Vector3(0, 1, 0);
     const forward = this.headDir.clone();
     const right = new THREE.Vector3().crossVectors(forward, up).normalize();
     const correctedForward = new THREE.Vector3().crossVectors(up, right).normalize();
@@ -323,7 +317,7 @@ export class Snake {
           mesh.scale.set(r, r, r * 0.8); 
           
           const forward = b.clone().sub(a).normalize();
-          const up = p.clone().normalize();
+          const up = new THREE.Vector3(0, 1, 0);
           const right = new THREE.Vector3().crossVectors(forward, up).normalize();
           const correctedForward = new THREE.Vector3().crossVectors(up, right).normalize();
           const m = new THREE.Matrix4().makeBasis(right, up, correctedForward);

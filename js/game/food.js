@@ -4,7 +4,7 @@ import { GLOW_TEX } from "../render/scene.js";
 export class Food {
   constructor(sphereRadius) {
     this.sphereRadius = sphereRadius;
-    this.pos = new THREE.Vector3(0, sphereRadius, 0);
+    this.pos = new THREE.Vector3(0, 0.5, 0);
     this.age = 0;
     this.type = "normal"; // "normal", "shield", "magnet"
     
@@ -33,10 +33,11 @@ export class Food {
 
     const minDist = this.sphereRadius * 0.8;
     for (let i = 0; i < 40; i++) {
-      const u = Math.random() * 2 - 1;
-      const t = Math.random() * Math.PI * 2;
-      const s = Math.sqrt(1 - u * u);
-      const p = new THREE.Vector3(s*Math.cos(t), u, s*Math.sin(t)).multiplyScalar(this.sphereRadius);
+      const p = new THREE.Vector3(
+        (Math.random() - 0.5) * 90,
+        0.5,
+        (Math.random() - 0.5) * 90
+      );
       if (p.distanceTo(headPos) > minDist) {
         this.pos.copy(p);
         this.age = 0;
