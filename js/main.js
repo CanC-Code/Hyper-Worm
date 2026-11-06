@@ -17,7 +17,7 @@ let food = null;
 let lastTime = performance.now();
 let dragState = null;
 
-let camAz = 0.9, camPol = 1.05, camDist = 50 * 1.8;
+let camAz = 0, camPol = Math.PI / 2 - 0.2, camDist = 12;
 let camTargetAz = camAz, camTargetPol = camPol, camTargetDist = camDist;
 let idleTime = 0;
 let targetFov = 58;
@@ -161,7 +161,15 @@ function gameOver() {
 
 function updateCamera(dt) {
   idleTime += dt;
-  if (!dragState && idleTime > 4) camTargetAz += dt * 0.08;
+  
+  // Auto-align camera behind the snake's direction
+  if (snake && !dragState && idleTime > 1.5) {
+    const targetAz = Math.atan2(snake.headDir.x, snake.headDir.z) + Math.PI;
+    let diff = targetAz - camTargetAz;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    camTargetAz += diff * 2.0 * dt;
+  }
 
   const k = 1 - Math.exp(-8 * dt);
   camAz   += (camTargetAz   - camAz)   * k;
@@ -169,9 +177,8 @@ function updateCamera(dt) {
   camDist += (camTargetDist - camDist) * k;
 
   const targetPos = snake ? snake.headPos.clone() : new THREE.Vector3(0, 0, 0);
-  
-  // Third person follow camera
   const sp = Math.sin(camPol);
+  
   const offset = new THREE.Vector3(
     sp * Math.cos(camAz) * camDist,
     Math.cos(camPol) * camDist,
@@ -180,8 +187,11 @@ function updateCamera(dt) {
 
   camera.position.lerp(targetPos.clone().add(offset), 1 - Math.exp(-10 * dt));
   
-  // Always look slightly above the snake
-  camera.lookAt(targetPos.x, targetPos.y + 1.5, targetPos.z);
+  // Look ahead into the horizon
+  const lookTarget = targetPos.clone();
+  if (snake) lookTarget.add(snake.headDir.clone().multiplyScalar(8));
+  lookTarget.y += 1.5;
+  camera.lookAt(lookTarget);
 }
 
 canvas.addEventListener("pointerdown", e => {
@@ -306,62 +316,39 @@ function drawMinimap() {
   const h = mapCanvas.height;
   const cx = w / 2;
   const cy = h / 2;
-  const R = w / 2 - 4;
+  const scale = w / 120; // Show 120x120 area
 
   mapCtx.clearRect(0, 0, w, h);
+  mapCtx.fillStyle = "rgba(10, 2, 30, 0.8)";
+  mapCtx.fillRect(0, 0, w, h);
+  mapCtx.strokeStyle = "rgba(34, 230, 255, 0.3)";
+  mapCtx.strokeRect(0, 0, w, h);
 
-  // Draw Globe background grid
-  mapCtx.strokeStyle = "rgba(34, 230, 255, 0.2)";
-  mapCtx.lineWidth = 1;
-  mapCtx.beginPath(); mapCtx.arc(cx, cy, R, 0, Math.PI * 2); mapCtx.stroke();
-  mapCtx.beginPath(); mapCtx.ellipse(cx, cy, R * 0.5, R, 0, 0, Math.PI * 2); mapCtx.stroke();
-  mapCtx.beginPath(); mapCtx.ellipse(cx, cy, R, R * 0.5, 0, 0, Math.PI * 2); mapCtx.stroke();
+  const pX = snake.headPos.x;
+  const pZ = snake.headPos.z;
 
-  // Project 3D vector to 2D map (Equirectangular)
-  const project = (v) => {
-    const lon = Math.atan2(v.x, v.z); // -PI to PI
-    const lat = Math.asin(v.y / v.length()); // -PI/2 to PI/2
-    return {
-      x: cx + (lon / Math.PI) * R,
-      y: cy - (lat / (Math.PI / 2)) * R
-    };
+  const drawDot = (x, z, color, size) => {
+    const dx = (x - pX) * scale;
+    const dz = (z - pZ) * scale;
+    mapCtx.fillStyle = color;
+    mapCtx.shadowColor = color;
+    mapCtx.shadowBlur = 5;
+    mapCtx.beginPath(); mapCtx.arc(cx + dx, cy + dz, size, 0, Math.PI * 2); mapCtx.fill();
   };
 
-  // Draw Food
-  if (food) {
-    const fp = project(food.pos);
-    mapCtx.fillStyle = "#ff2fd0";
-    mapCtx.shadowColor = "#ff2fd0";
-    mapCtx.shadowBlur = 5;
-    mapCtx.beginPath(); mapCtx.arc(fp.x, fp.y, 3, 0, Math.PI * 2); mapCtx.fill();
-  }
+  if (food) drawDot(food.pos.x, food.pos.z, "#ff2fd0", 3);
+  droppedFood.forEach(df => drawDot(df.pos.x, df.pos.z, "#ff0000", 2));
+  enemies.forEach(e => drawDot(e.headPos.x, e.headPos.z, "#ff0000", 4));
+  drawDot(pX, pZ, "#44ff88", 4);
 
-  // Draw Dropped Food
-  droppedFood.forEach(df => {
-    const dfp = project(df.pos);
-    mapCtx.fillStyle = "#ff0000";
-    mapCtx.shadowColor = "#ff0000";
-    mapCtx.shadowBlur = 3;
-    mapCtx.beginPath(); mapCtx.arc(dfp.x, dfp.y, 2, 0, Math.PI * 2); mapCtx.fill();
-  });
-
-  // Draw Enemies
-  enemies.forEach(enemy => {
-    const ep = project(enemy.headPosition());
-    mapCtx.fillStyle = "#ff0000";
-    mapCtx.shadowColor = "#ff0000";
-    mapCtx.shadowBlur = 8;
-    mapCtx.beginPath(); mapCtx.arc(ep.x, ep.y, 4, 0, Math.PI * 2); mapCtx.fill();
-  });
-
-  // Draw Player (Always on top)
-  const pp = project(snake.headPosition());
-  mapCtx.fillStyle = "#44ff88";
-  mapCtx.shadowColor = "#44ff88";
-  mapCtx.shadowBlur = 8;
-  mapCtx.beginPath(); mapCtx.arc(pp.x, pp.y, 4, 0, Math.PI * 2); mapCtx.fill();
-
-  mapCtx.shadowBlur = 0; // reset
+  // Directional line
+  mapCtx.strokeStyle = "#44ff88";
+  mapCtx.lineWidth = 2;
+  mapCtx.beginPath();
+  mapCtx.moveTo(cx, cy);
+  mapCtx.lineTo(cx + snake.headDir.x * 15, cy + snake.headDir.z * 15);
+  mapCtx.stroke();
+  mapCtx.shadowBlur = 0;
 }
 
 function loop(now) {

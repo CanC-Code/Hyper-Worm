@@ -46,7 +46,34 @@ function makeGlowTexture() {
 }
 export const GLOW_TEX = makeGlowTexture();
 
-export const ARENA_SIZE = 100; // 100x100 arena
+export const ARENA_SIZE = 100;
+
+// Add 3D Obstacles to create depth and speed
+for (let i = 0; i < 80; i++) {
+  const w = 2 + Math.random() * 4;
+  const h = 10 + Math.random() * 30;
+  const d = 2 + Math.random() * 4;
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mat = new THREE.MeshStandardMaterial({ 
+    color: 0x050510, 
+    metalness: 0.9, 
+    roughness: 0.1,
+    emissive: 0x22e6ff,
+    emissiveIntensity: 0.1
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  let x, z;
+  do {
+    x = (Math.random() - 0.5) * 150;
+    z = (Math.random() - 0.5) * 150;
+  } while (Math.abs(x) < 20 && Math.abs(z) < 20); // Keep spawn clear
+  
+  mesh.position.set(x, h/2, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  world.add(mesh);
+}
+ // 100x100 arena
 
 // Floor
 const floorGeo = new THREE.PlaneGeometry(ARENA_SIZE, ARENA_SIZE);
