@@ -34,30 +34,27 @@ export const GLOW_TEX = makeGlowTexture();
 
 export const SPHERE_RADIUS = 12;
 
-world.add(new THREE.Mesh(
-  new THREE.SphereGeometry(SPHERE_RADIUS * 0.995, 48, 32),
-  hexMat
-));
-
-
+// ── NEW HEX GRID MATERIAL (Defined here before it is used) ──
 const hexMat = new THREE.ShaderMaterial({
-  uniforms: {
-    uColor: { value: new THREE.Color(0x22e6ff) }
-  },
+  uniforms: { uColor: { value: new THREE.Color(0x22e6ff) } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
     uniform vec3 uColor;
     varying vec2 vUv;
     void main(){
-      // Simple procedural grid pattern
       vec2 grid = abs(fract(vUv * 50.0 - 0.5) - 0.5) / fwidth(vUv * 50.0);
       float line = min(grid.x, grid.y);
       float alpha = 1.0 - min(line, 1.0);
       gl_FragColor = vec4(uColor, alpha * 0.15);
     }
   `,
-  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
 });
+
+world.add(new THREE.Mesh(
+  new THREE.SphereGeometry(SPHERE_RADIUS * 0.995, 64, 64), // Higher poly count for smooth grid
+  hexMat
+));
 
 const wire = new THREE.LineSegments(
   new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(SPHERE_RADIUS * 1.004, 3)),
@@ -105,8 +102,7 @@ const atmo = new THREE.Mesh(
 );
 world.add(atmo);
 
-// envRefs must be defined BEFORE the rings use it
-export const envRefs = { wire, atmo, rings: [] };
+export const envRefs = { wire, atmo, rings: [], hexMat };
 
 // Glowing Energy Core
 world.add(new THREE.Mesh(
