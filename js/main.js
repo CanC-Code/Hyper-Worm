@@ -15,7 +15,7 @@ let food = null;
 let lastTime = performance.now();
 let dragState = null;
 
-let camAz = 0.9, camPol = 1.05, camDist = SPHERE_RADIUS * 3.6;
+let camAz = 0.9, camPol = 1.05, camDist = SPHERE_RADIUS * 1.8;
 let camTargetAz = camAz, camTargetPol = camPol, camTargetDist = camDist;
 let idleTime = 0;
 let targetFov = 58;
@@ -234,8 +234,8 @@ canvas.addEventListener("wheel", e => {
   e.preventDefault();
   camTargetDist = THREE.MathUtils.clamp(
     camTargetDist * (1 + Math.sign(e.deltaY) * 0.12),
-    SPHERE_RADIUS * 2.2,
-    SPHERE_RADIUS * 7
+    SPHERE_RADIUS * 1.2,
+    SPHERE_RADIUS * 4.0
   );
 }, { passive: false });
 canvas.addEventListener("contextmenu", e => e.preventDefault());
@@ -319,6 +319,75 @@ function handleBite(biter, bitten, hitIndex) {
     spawnEnemy(severedLength, spawnDir);
   }
   return true;
+}
+
+
+// ── MINIMAP LOGIC ──────────────────────────────────────────────────────────
+const mapCanvas = document.getElementById("minimap");
+const mapCtx = mapCanvas.getContext("2d");
+
+function drawMinimap() {
+  if (!mapCtx || !gameState.playing || !snake) return;
+  const w = mapCanvas.width;
+  const h = mapCanvas.height;
+  const cx = w / 2;
+  const cy = h / 2;
+  const R = w / 2 - 4;
+
+  mapCtx.clearRect(0, 0, w, h);
+
+  // Draw Globe background grid
+  mapCtx.strokeStyle = "rgba(34, 230, 255, 0.2)";
+  mapCtx.lineWidth = 1;
+  mapCtx.beginPath(); mapCtx.arc(cx, cy, R, 0, Math.PI * 2); mapCtx.stroke();
+  mapCtx.beginPath(); mapCtx.ellipse(cx, cy, R * 0.5, R, 0, 0, Math.PI * 2); mapCtx.stroke();
+  mapCtx.beginPath(); mapCtx.ellipse(cx, cy, R, R * 0.5, 0, 0, Math.PI * 2); mapCtx.stroke();
+
+  // Project 3D vector to 2D map (Equirectangular)
+  const project = (v) => {
+    const lon = Math.atan2(v.x, v.z); // -PI to PI
+    const lat = Math.asin(v.y / v.length()); // -PI/2 to PI/2
+    return {
+      x: cx + (lon / Math.PI) * R,
+      y: cy - (lat / (Math.PI / 2)) * R
+    };
+  };
+
+  // Draw Food
+  if (food) {
+    const fp = project(food.pos);
+    mapCtx.fillStyle = "#ff2fd0";
+    mapCtx.shadowColor = "#ff2fd0";
+    mapCtx.shadowBlur = 5;
+    mapCtx.beginPath(); mapCtx.arc(fp.x, fp.y, 3, 0, Math.PI * 2); mapCtx.fill();
+  }
+
+  // Draw Dropped Food
+  droppedFood.forEach(df => {
+    const dfp = project(df.pos);
+    mapCtx.fillStyle = "#ff0000";
+    mapCtx.shadowColor = "#ff0000";
+    mapCtx.shadowBlur = 3;
+    mapCtx.beginPath(); mapCtx.arc(dfp.x, dfp.y, 2, 0, Math.PI * 2); mapCtx.fill();
+  });
+
+  // Draw Enemies
+  enemies.forEach(enemy => {
+    const ep = project(enemy.headPosition());
+    mapCtx.fillStyle = "#ff0000";
+    mapCtx.shadowColor = "#ff0000";
+    mapCtx.shadowBlur = 8;
+    mapCtx.beginPath(); mapCtx.arc(ep.x, ep.y, 4, 0, Math.PI * 2); mapCtx.fill();
+  });
+
+  // Draw Player (Always on top)
+  const pp = project(snake.headPosition());
+  mapCtx.fillStyle = "#44ff88";
+  mapCtx.shadowColor = "#44ff88";
+  mapCtx.shadowBlur = 8;
+  mapCtx.beginPath(); mapCtx.arc(pp.x, pp.y, 4, 0, Math.PI * 2); mapCtx.fill();
+
+  mapCtx.shadowBlur = 0; // reset
 }
 
 function loop(now) {
@@ -466,6 +535,7 @@ function loop(now) {
   envRefs.atmo.material.uniforms.uStrength.value = 0.75 + 0.12 * Math.sin(gameState.time * 1.3);
   envRefs.wire.material.opacity = 0.10 + 0.05 * Math.sin(gameState.time * 0.9 + 1.0);
 
+  drawMinimap();
   renderer.render(scene, camera);
 }
 

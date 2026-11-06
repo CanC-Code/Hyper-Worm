@@ -65,7 +65,7 @@ const snakeMaterial = new THREE.ShaderMaterial({
 });
 
 export class Snake {
-  constructor({ sphereRadius, segmentLength = 0.5, initialSegments = 12,
+  constructor({ sphereRadius, segmentLength = 0.35, initialSegments = 12,
                 radius = 0.4, taper = 0.55, speed = 4.5 }) {
     this.sphereRadius = sphereRadius;
     this.segmentLength = segmentLength;
@@ -94,7 +94,7 @@ export class Snake {
     this.headGroup.position.copy(this.headPos);
     
     // Skull (Pointed snout)
-    this.skull = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.2, 8), snakeMaterial);
+    this.skull = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.4, 8), snakeMaterial);
     this.skull.rotation.x = Math.PI / 2; // Point forward
     this.skull.position.z = 0.3;
     this.headGroup.add(this.skull);
@@ -293,7 +293,7 @@ export class Snake {
           
           const k = s / Math.max(n, 1);
           const r = this.radius * (1 - k * this.taper);
-          mesh.scale.setScalar(r * (1 + 0.08 * Math.sin(this.time * 7 - s * 0.55)));
+          mesh.scale.setScalar(r * 1.2 * (1 + 0.08 * Math.sin(this.time * 7 - s * 0.55)));
           
           const forward = b.clone().sub(a).normalize();
           const up = p.clone().normalize();
