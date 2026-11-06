@@ -1,27 +1,27 @@
 import * as THREE from "../../three/three.module.js";
 
 export const scene = new THREE.Scene();
-// Bright neon horizon fog
-scene.fog = new THREE.FogExp2(0x0a001a, 0.02); 
+// Deep fog to create an infinite horizon
+scene.fog = new THREE.FogExp2(0x050010, 0.025);
 
 export const world = new THREE.Group();
 scene.add(world);
 
-export const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 1000);
+export const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 1000);
 
 export const renderer = new THREE.WebGLRenderer({
   antialias: true, alpha: true, powerPreference: "high-performance"
 });
 renderer.setClearAlpha(0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.5;
+renderer.toneMappingExposure = 1.2;
 renderer.domElement.id = "scene";
 document.body.appendChild(renderer.domElement);
 
-// Strong ambient and directional lights
-scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-const dirLight = new THREE.DirectionalLight(0x22e6ff, 2.5);
-dirLight.position.set(10, 40, 10);
+// Lighting
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dirLight = new THREE.DirectionalLight(0x22e6ff, 2.0);
+dirLight.position.set(10, 30, 10);
 scene.add(dirLight);
 const dirLight2 = new THREE.DirectionalLight(0xff2fd0, 1.5);
 dirLight2.position.set(-10, 20, -10);
@@ -43,49 +43,55 @@ function makeGlowTexture() {
 }
 export const GLOW_TEX = makeGlowTexture();
 
-// Massive Floor
-const floorGeo = new THREE.PlaneGeometry(2000, 2000);
-const floorMat = new THREE.MeshStandardMaterial({ color: 0x0a001a, metalness: 0.9, roughness: 0.3 });
+// Infinite Floor
+const floorGeo = new THREE.PlaneGeometry(3000, 3000);
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x020005, metalness: 1.0, roughness: 0.2 });
 const floor = new THREE.Mesh(floorGeo, floorMat);
 floor.rotation.x = -Math.PI / 2;
 floor.position.y = -0.1;
 world.add(floor);
 
-// Dense Neon Grid
-const gridHelper = new THREE.GridHelper(2000, 400, 0x22e6ff, 0xff2fd0);
+// Dense Neon Track Grid
+const gridHelper = new THREE.GridHelper(3000, 300, 0x22e6ff, 0x8a5cff);
 gridHelper.position.y = 0;
 world.add(gridHelper);
 
-// Solid Glowing Neon Pillars
+// Massive Neon Data-Pillars (Create a corridor feel)
 export const pillars = [];
-for (let i = 0; i < 80; i++) {
-  const w = 1.5 + Math.random() * 3;
-  const h = 10 + Math.random() * 50;
-  const d = 1.5 + Math.random() * 3;
-  const geo = new THREE.BoxGeometry(w, h, d);
+for (let i = 0; i < 100; i++) {
+  const h = 20 + Math.random() * 60;
+  const w = 2 + Math.random() * 4;
+  const geo = new THREE.BoxGeometry(w, h, w);
   
+  const isCyan = Math.random() > 0.5;
   const mat = new THREE.MeshStandardMaterial({ 
     color: 0x000000, 
-    emissive: Math.random() > 0.5 ? 0x22e6ff : 0xff2fd0,
-    emissiveIntensity: 1.5,
-    metalness: 0.8,
-    roughness: 0.2
+    emissive: isCyan ? 0x22e6ff : 0xff2fd0,
+    emissiveIntensity: 2.0,
+    metalness: 0.9,
+    roughness: 0.1
   });
   
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set((Math.random() - 0.5) * 400, h/2, (Math.random() - 0.5) * 400);
+  // Push them out of the center to leave a driving lane
+  const side = Math.random() > 0.5 ? 1 : -1;
+  mesh.position.set(
+    side * (15 + Math.random() * 80), 
+    h/2, 
+    (Math.random() - 0.5) * 600
+  );
   world.add(mesh);
-  pillars.push({ mesh, h, w, d });
+  pillars.push({ mesh, h, w });
 }
 
-export const envRefs = { wire: gridHelper, rings: [] };
+export const envRefs = { wire: gridHelper };
 
 export function fitCamera() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  camera.fov = w / h < 1 ? 75 : 65;
+  camera.fov = w / h < 1 ? 80 : 70;
   camera.updateProjectionMatrix();
 }
 window.addEventListener("resize", fitCamera);

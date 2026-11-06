@@ -17,9 +17,9 @@ let food = null;
 let lastTime = performance.now();
 let dragState = null;
 
-let camAz = 0, camPol = 1.05, camDist = 14;
-let camTargetAz = camAz, camTargetPol = camPol, camTargetDist = camDist;
-let idleTime = 0;
+
+
+
 let targetFov = 58;
 
 const $score = document.getElementById("score");
@@ -160,76 +160,36 @@ function gameOver() {
 }
 
 function updateCamera(dt) {
-  idleTime += dt;
-  
-  // Rigid auto-align: The camera snaps behind the snake's heading
-  if (snake && !dragState) {
-    const targetAz = Math.atan2(snake.headDir.x, snake.headDir.z) + Math.PI;
-    let diff = targetAz - camTargetAz;
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    // Very fast alignment for racing feel
-    camTargetAz += diff * 8.0 * dt; 
-  }
+  if (!snake) return;
 
-  const k = 1 - Math.exp(-12 * dt);
-  camAz   += (camTargetAz   - camAz)   * k;
-  camPol  += (camTargetPol  - camPol)  * k;
-  camDist += (camTargetDist - camDist) * k;
-
-  const targetPos = snake ? snake.headPos.clone() : new THREE.Vector3(0, 0, 0);
+  // Rigid follow camera: permanently locked behind the snake's head
+  const camDist = 16;
+  const camHeight = 8;
+  const targetPos = snake.headPos.clone();
   
-  // Fixed racing angle: 10 units back, 5 units up
-  const sp = Math.sin(camPol);
-  const offset = new THREE.Vector3(
-    sp * Math.cos(camAz) * camDist,
-    Math.cos(camPol) * camDist,
-    sp * Math.sin(camAz) * camDist
-  );
-
-  camera.position.lerp(targetPos.clone().add(offset), 1 - Math.exp(-15 * dt));
+  // Position exactly behind the snake
+  camera.position.copy(targetPos);
+  camera.position.addScaledVector(snake.headDir, -camDist);
+  camera.position.y += camHeight;
   
-  // Look directly ahead of the snake (down the horizon)
-  const lookTarget = targetPos.clone();
-  if (snake) lookTarget.add(snake.headDir.clone().multiplyScalar(12));
-  lookTarget.y += 1.5;
+  // Look ahead into the horizon
+  const lookTarget = targetPos.clone().addScaledVector(snake.headDir, 15);
+  lookTarget.y += 2;
   camera.lookAt(lookTarget);
 
-  // Dynamic FOV when boosting
-  let targetFov = 65;
-  if (getBoost()) targetFov = 85;
-  camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-6 * dt));
+  // Dynamic FOV for boost
+  let targetFov = 70;
+  if (getBoost()) targetFov = 90;
+  camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-10 * dt));
   camera.updateProjectionMatrix();
 }
 
-canvas.addEventListener("pointerdown", e => {
-  if (!gameState.playing) return;
-  canvas.setPointerCapture(e.pointerId);
-  dragState = { id: e.pointerId, x: e.clientX, y: e.clientY };
-  idleTime = 0;
-});
-canvas.addEventListener("pointermove", e => {
-  if (!dragState || dragState.id !== e.pointerId) return;
-  const dx = e.clientX - dragState.x;
-  const dy = e.clientY - dragState.y;
-  camTargetAz -= dx * 0.008;
-  camTargetPol = THREE.MathUtils.clamp(camTargetPol - dy * 0.008, 0.05, Math.PI - 0.05);
-  dragState.x = e.clientX;
-  dragState.y = e.clientY;
-  idleTime = 0;
-});
+
+
 const endDrag = e => { if (dragState && dragState.id === e.pointerId) dragState = null; };
 canvas.addEventListener("pointerup", endDrag);
 canvas.addEventListener("pointercancel", endDrag);
-canvas.addEventListener("wheel", e => {
-  if (!gameState.playing) return;
-  e.preventDefault();
-  camTargetDist = THREE.MathUtils.clamp(
-    camTargetDist * (1 + Math.sign(e.deltaY) * 0.12),
-    50 * 1.2,
-    50 * 4.0
-  );
-}, { passive: false });
+
 canvas.addEventListener("contextmenu", e => e.preventDefault());
 
 document.addEventListener("visibilitychange", () => {
@@ -554,6 +514,22 @@ function loop(now) {
       }
     });
     // Snap the grid to the player to create an illusion of infinite movement
+    envRefs.wire.position.x = Math.floor(snake.headPos.x / 10) * 10;
+    envRefs.wire.position.z = Math.floor(snake.headPos.z / 10) * 10;
+  }
+
+  // Endless World: Recycle pillars around the snake
+  if (snake) {
+    pillars.forEach(p => {
+      // If a pillar is too far behind or ahead, teleport it
+      const distZ = p.mesh.position.z - snake.headPos.z;
+      if (Math.abs(distZ) > 400) {
+        p.mesh.position.z = snake.headPos.z + (Math.random() > 0.5 ? 1 : -1) * (300 + Math.random() * 100);
+        p.mesh.position.x = (Math.random() > 0.5 ? 1 : -1) * (15 + Math.random() * 80);
+      }
+    });
+    
+    // Move the grid with the snake
     envRefs.wire.position.x = Math.floor(snake.headPos.x / 10) * 10;
     envRefs.wire.position.z = Math.floor(snake.headPos.z / 10) * 10;
   }

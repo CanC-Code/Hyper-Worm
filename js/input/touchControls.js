@@ -4,7 +4,7 @@
 export const inputState = {
   steer: 0, orbitX: 0, orbitY: 0, boost: false,
   keyLeft: false, keyRight: false, keyBoost: false,
-  keyOrbitL: false, keyOrbitR: false
+  
 };
 
 const DZ = 0.08;
@@ -60,7 +60,7 @@ export function initTouchControls() {
   const bb = $("btn-boost");
 
   if (lb && lk) stick(lb, lk, (x) => { inputState.steer = x; });
-  if (rb && rk) stick(rb, rk, (x, y) => { inputState.orbitX = x; inputState.orbitY = y; });
+  
 
   if (bb) {
     const on = (e) => {
@@ -81,7 +81,7 @@ export function initTouchControls() {
     bb.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
-  const km = { ArrowLeft: "keyLeft", a: "keyLeft", ArrowRight: "keyRight", d: "keyRight", q: "keyOrbitL", e: "keyOrbitR" };
+  const km = { ArrowLeft: "keyLeft", a: "keyLeft", ArrowRight: "keyRight", d: "keyRight" };
 
   window.addEventListener("keydown", (e) => {
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -98,7 +98,7 @@ export function initTouchControls() {
   window.addEventListener("blur", () => {
     inputState.steer = inputState.orbitX = inputState.orbitY = 0;
     inputState.boost = inputState.keyBoost = false;
-    inputState.keyLeft = inputState.keyRight = inputState.keyOrbitL = inputState.keyOrbitR = false;
+    inputState.keyLeft = inputState.keyRight = false;
     document.querySelectorAll(".stick-zone.active, .boost-btn.active").forEach((el) => el.classList.remove("active"));
     document.querySelectorAll(".stick-knob").forEach((el) => {
       el.style.transition = "transform .22s";
