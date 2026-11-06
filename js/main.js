@@ -174,44 +174,30 @@ function updateCamera(dt) {
   idleTime += dt;
   if (!dragState && idleTime > 4) camTargetAz += dt * 0.08;
 
-  // Smooth spring-damper for camera angles
   const k = 1 - Math.exp(-8 * dt);
   camAz   += (camTargetAz   - camAz)   * k;
   camPol  += (camTargetPol  - camPol)  * k;
   camDist += (camTargetDist - camDist) * k;
 
   const targetPos = snake ? snake.headPos.clone() : new THREE.Vector3(0, 0, 0);
-  
-  // Add camera look-ahead (looks slightly in front of the snake)
-  if (snake && gameState.playing) {
-    targetPos.addScaledVector(snake.headDir, 1.5);
-  }
-
   const sp = Math.sin(camPol);
+  
+  // The offset is calculated relative to the camera's polar angle
   const offset = new THREE.Vector3(
     sp * Math.cos(camAz) * camDist,
     Math.cos(camPol) * camDist,
     sp * Math.sin(camAz) * camDist
   );
 
-  // Smoothly lerp the camera position to follow
+  // Smoothly move to the new position
   camera.position.lerp(targetPos.clone().add(offset), 1 - Math.exp(-10 * dt));
+
+  // Lock the camera's UP vector to the normal of the sphere at the snake's location
+  // This prevents the camera from flipping upside down or glitching at the poles
+  const normal = targetPos.clone().normalize();
+  camera.up.copy(normal);
+  
   camera.lookAt(targetPos);
-
-  // --- Camera Banking (Roll) based on turning ---
-  let targetRoll = 0;
-  if (snake) {
-    // If steering left/right, tilt the camera slightly
-    const steer = getSteer();
-    targetRoll = steer * -0.15; // Tilt up to ~8 degrees
-  }
-  camera.rotation.z += (targetRoll - camera.rotation.z) * (1 - Math.exp(-6 * dt));
-
-  // --- Dynamic FOV for Speed ---
-  let targetFov = 58;
-  if (getBoost()) targetFov = 75; // Zoom out when boosting
-  camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-5 * dt));
-  camera.updateProjectionMatrix();
 }
 
 canvas.addEventListener("pointerdown", e => {

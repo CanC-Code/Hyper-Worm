@@ -3,7 +3,7 @@ import { GLOW_TEX } from "../render/scene.js";
 
 const MAX_SEGMENTS = 100;
 
-// Custom Shader for Liquid Neon look (Fresnel Glow)
+// Custom Shader for Liquid Metal look
 const snakeMaterial = new THREE.ShaderMaterial({
   uniforms: {
     uColor: { value: new THREE.Color(0x22e6ff) }
@@ -25,7 +25,7 @@ const snakeMaterial = new THREE.ShaderMaterial({
     void main() {
       float fresnel = dot(normalize(vNormal), normalize(vViewPosition));
       fresnel = pow(1.0 - fresnel, 2.0);
-      vec3 baseColor = uColor * 0.1;
+      vec3 baseColor = uColor * 0.2;
       vec3 glowColor = uColor * 3.0;
       vec3 finalColor = mix(baseColor, glowColor, fresnel);
       gl_FragColor = vec4(finalColor, 1.0);
@@ -34,7 +34,7 @@ const snakeMaterial = new THREE.ShaderMaterial({
 });
 
 export class Snake {
-  constructor({ sphereRadius, segmentLength = 0.35, initialSegments = 12,
+  constructor({ sphereRadius, segmentLength = 0.25, initialSegments = 12,
                 radius = 0.45, taper = 0.55, speed = 4.5 }) {
     this.sphereRadius = sphereRadius;
     this.segmentLength = segmentLength;
@@ -59,40 +59,50 @@ export class Snake {
     this.targetSegCount = initialSegments;
     this.object3D = new THREE.Group();
 
-    // --- CYBER-VIPER HEAD ---
+    // --- HIGH QUALITY VIPER HEAD ---
     this.headGroup = new THREE.Group();
     
-    // Upper Skull (Spade shape)
-    const skullGeo = new THREE.SphereGeometry(0.6, 16, 16);
-    skullGeo.scale(1.2, 0.6, 2.0);
+    // Skull (Sleek capsule)
+    const skullGeo = new THREE.CapsuleGeometry(0.45, 0.8, 8, 16);
+    skullGeo.rotateX(Math.PI / 2); // Point forward
     this.skull = new THREE.Mesh(skullGeo, snakeMaterial);
     this.skull.position.z = 0.3;
     this.headGroup.add(this.skull);
 
+    // Snout (Pointed cone)
+    const snoutGeo = new THREE.ConeGeometry(0.45, 0.8, 16);
+    snoutGeo.rotateX(Math.PI / 2);
+    const snout = new THREE.Mesh(snoutGeo, snakeMaterial);
+    snout.position.z = 0.9;
+    this.headGroup.add(snout);
+
     // Lower Jaw
     this.jaw = new THREE.Group();
-    this.jaw.position.set(0, -0.15, 0.1);
-    const jawGeo = new THREE.SphereGeometry(0.5, 16, 16);
-    jawGeo.scale(1.0, 0.3, 1.8);
+    this.jaw.position.set(0, -0.15, 0.2);
+    const jawGeo = new THREE.BoxGeometry(0.7, 0.15, 1.2);
     const jawMesh = new THREE.Mesh(jawGeo, snakeMaterial);
-    jawMesh.position.z = 0.2;
+    jawMesh.position.z = 0.3;
     this.jaw.add(jawMesh);
     
     // Glowing Mouth
     const mouthMat = new THREE.MeshBasicMaterial({ color: 0xff2fd0 });
-    const mouthGeo = new THREE.SphereGeometry(0.4, 8, 8);
-    mouthGeo.scale(0.9, 0.15, 1.5);
+    const mouthGeo = new THREE.BoxGeometry(0.6, 0.05, 1.0);
     const mouth = new THREE.Mesh(mouthGeo, mouthMat);
     mouth.position.set(0, 0.05, 0.2);
     this.jaw.add(mouth);
     this.headGroup.add(this.jaw);
 
-    // Eyes
+    // Reptilian Eyes (Glowing)
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const eyeGeo = new THREE.SphereGeometry(0.1, 8, 8);
-    const eL = new THREE.Mesh(eyeGeo, eyeMat); eL.position.set(-0.4, 0.2, 0.4);
-    const eR = new THREE.Mesh(eyeGeo, eyeMat); eR.position.set(0.4, 0.2, 0.4);
-    this.headGroup.add(eL, eR);
+    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
+    const pupilGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    
+    const eL = new THREE.Mesh(eyeGeo, eyeMat); eL.position.set(-0.3, 0.2, 0.5);
+    const eLp = new THREE.Mesh(pupilGeo, pupilMat); eLp.position.set(-0.35, 0.2, 0.55);
+    const eR = new THREE.Mesh(eyeGeo, eyeMat); eR.position.set(0.3, 0.2, 0.5);
+    const eRp = new THREE.Mesh(pupilGeo, pupilMat); eRp.position.set(0.35, 0.2, 0.55);
+    this.headGroup.add(eL, eLp, eR, eRp);
 
     this.object3D.add(this.headGroup);
 
@@ -101,14 +111,11 @@ export class Snake {
       map: GLOW_TEX, color: 0x9ff6ff, blending: THREE.AdditiveBlending,
       transparent: true, depthWrite: false, opacity: 0.9
     }));
-    this.headGlow.scale.setScalar(3.5);
+    this.headGlow.scale.setScalar(4.0);
     this.object3D.add(this.headGlow);
 
-    // --- SMOOTH BODY ---
-    // Using a cylinder that points down the Z axis, stretched later
-    this.segGeo = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true);
-    this.segGeo.rotateX(Math.PI / 2); // Point down Z
-    this.segGeo.translate(0, 0, 0.5); // Origin at one end
+    // --- SMOOTH BODY (Overlapping elongated spheres) ---
+    this.segGeo = new THREE.SphereGeometry(1, 16, 16);
     this.initSegments();
 
     this.seedTrail();
@@ -156,7 +163,7 @@ export class Snake {
   }
 
   addTrailPoint(pos) {
-    if (this.trail.length > 0 && this.trail[0].distanceToSquared(pos) < 0.001) return;
+    if (this.trail.length > 0 && this.trail[0].distanceToSquared(pos) < 0.0005) return;
     this.trail.unshift(pos.clone());
     const maxLen = this.targetSegCount * this.segmentLength + 10;
     let acc = 0;
@@ -219,14 +226,14 @@ export class Snake {
     const color = new THREE.Color().setHSL(hue, 1.0, 0.5);
     
     if (this.hasShield > 0) {
-      snakeMaterial.uniforms.uColor.value.setHex(0x22e6ff); // Force Cyan for shield
+      snakeMaterial.uniforms.uColor.value.setHex(0x22e6ff);
     } else {
       snakeMaterial.uniforms.uColor.value.copy(color);
     }
     
     this.headGlow.material.color.copy(color);
     this.headGlow.position.copy(this.headPos);
-    this.headGlow.scale.setScalar(3.5 * (1 + 0.1 * Math.sin(this.time * 10)));
+    this.headGlow.scale.setScalar(4.0 * (1 + 0.1 * Math.sin(this.time * 10)));
   }
 
   updateSegments() {
@@ -250,13 +257,11 @@ export class Snake {
           mesh.visible = true;
           mesh.position.copy(p);
           
-          // STRETCH THE CYLINDER TO BRIDGE THE GAP
-          const nextP = this.trail[Math.min(trailIdx + 2, trailLen - 1)];
-          const stretch = p.distanceTo(nextP) * 1.5;
-          
           const k = s / Math.max(n, 1);
           const r = this.radius * (1 - k * this.taper);
-          mesh.scale.set(r, r, stretch + 0.1); // Stretch Z
+          
+          // Elongate the sphere along the Z axis to create a seamless tube
+          mesh.scale.set(r, r * 0.8, r * 2.0); 
           
           const forward = b.clone().sub(a).normalize();
           const up = p.clone().normalize();
@@ -283,7 +288,7 @@ export class Snake {
   headDirection() { return this.headDir.clone(); }
 
   checkSelfCollision() {
-    if (this.hasShield > 0) return false; // Invincible
+    if (this.hasShield > 0) return false;
     const skip = 10;
     const threshold = (this.radius * 1.5) ** 2;
     const n = Math.ceil(this.segCount);
